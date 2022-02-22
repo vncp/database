@@ -23,30 +23,37 @@ INCLUDE_DIRECTORIES(
   "${PROJECT_SOURCE_DIR}/include"
 )
 
-SET(INCLUDES ${PROJECT_SOURCE_DIR}/include)
-INCLUDE_DIRECTORIES(${INCLUDES})
+#SET(INCLUDES ${PROJECT_SOURCE_DIR}/include)
+#INCLUDE_DIRECTORIES(${INCLUDES})
 
-FILE(GLOB_RECURSE SOURCES "src/*.cpp")
+FILE( GLOB LIB_HEADERS $PROJECT_SOURCE_DIR}/include/*.hpp)
+ADD_LIBRARY(INCLUDES ${LIB_HEADERS} INTERFACE)
 
 # Build test binary
 enable_testing()
 ADD_EXECUTABLE(
-  lexer_test
-  ${SOURCES}
+  sql_test
+  ${PROJECT_SOURCE_DIR}/src/database_test.cpp
 )
 
 # Link to GoogleTest
 TARGET_LINK_LIBRARIES(
-  lexer_test
+  sql_test
   gtest_main
+  INCLUDES
 )
 
 # Discover and run tests in binary
 include(GoogleTest)
-gtest_discover_tests(lexer_test)
+gtest_discover_tests(sql_test)
 
-#Build project binary
-#FILE(GLOB_RECURSE SOURCES "src/*.cpp")
-#ADD_EXECUTABLE(${PROJECT_NAME} ${SOURCES})
+ADD_EXECUTABLE(
+  main
+  ${PROJECT_SOURCE_DIR}/src/main.cpp
+  ${LIB_HEADERS}
+)
 
-#TARGET_LINK_LIBRARIES(${PROJECT_NAME})
+TARGET_LINK_LIBRARIES(
+  main
+  INCLUDES
+)

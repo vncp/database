@@ -2,11 +2,13 @@
  * Define Strings as tokens for simplicity. 
  * - To be improved by setting tokens as bytes later
  */
-#include <string>
-#include <unordered_map>
 
 #ifndef __TOKENS_HPP__
 #define __TOKENS_HPP__
+
+#include <string>
+#include <sstream>
+#include <unordered_map>
 
 namespace token_type {
   // set TokenType so we can change the type later
@@ -95,6 +97,12 @@ struct Token {
   void operator=(const Token &rhs) {
     type = rhs.type;
     literal = rhs.literal;
+  }
+
+  operator std::string() const {
+    std::ostringstream ss;
+    ss << "{ Token: '" << type << "', Literal: '" << literal << "' }";
+    return ss.str();
   }
 };
 
