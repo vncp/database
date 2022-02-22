@@ -72,9 +72,54 @@ TEST(ParserTest, CreateDatabaseStatements) {
   SQLParser parser(&lexer);
   ast::Program *program = parser.parseSql();
 
-  EXPECT_NE(program, nullptr);
-  EXPECT_EQ(program->statements.size(), 2);
+  ASSERT_NE(program, nullptr);
+  ASSERT_EQ(program->statements.size(), 2);
+
+  auto testCreateDatabaseStatement = [](ast::Statement *statement, std::string name) {
+    ast::CreateDatabaseStatement *casted_statement = dynamic_cast<ast::CreateDatabaseStatement*>(statement);
+    EXPECT_EQ(casted_statement->tokenLiteral(), "CREATE");
+    EXPECT_EQ(casted_statement->name->value, name);
+    EXPECT_EQ(casted_statement->name->tokenLiteral(), name);
+  };
+
+  testCreateDatabaseStatement(program->statements[0], "db_1");
+  testCreateDatabaseStatement(program->statements[1], "db_2");
+}
+
+TEST(ParserTest, CreateTableStatements) {
+  std::string input = "CREATE TABLE tbl_1 (a1 int, a2 varchar(20));\
+                  CREATE TABLE tbl_2(a3 float, a4 char);";
+  Lexer lexer(input);
+  SQLParser parser(&lexer);
+  ast::Program *program = parser.parseSql();
+
+  ASSERT_NE(program, nullptr);
+  ASSERT_EQ(program->statements.size(), 2);
+
+  auto testCreateTableStatement = [](ast::Statement *statement, std::string name) {
+    ast::CreateTableStatement *casted_statement = dynamic_cast<ast::CreateTableStatement*>(statement);
+    EXPECT_EQ(casted_statement->tokenLiteral(), "CREATE");
+    EXPECT_EQ(casted_statement->name->value, name);
+    EXPECT_EQ(casted_statement->name->tokenLiteral(), name);
+  };
+
+  testCreateTableStatement(program->statements[0], "tbl_1");
+  testCreateTableStatement(program->statements[1], "tbl_2");
+}
+
+TEST(ParserTest, IdentifierExpressions) {
+  std::string input = "applesauce;";
+  Lexer lexer(input);
+  SQLParser parser(&lexer);
+  ast::Program *program = parser.parseSql();
+
+  ASSERT_NE(program, nullptr);
+  ASSERT_EQ(program->statements.size(), 1);
+
+  ast::ExpressionStatement *statement = dynamic_cast<ast::ExpressionStatement*>(program->statements[0]);
+  ast::Identifier *expression = dynamic_cast<ast::Identifier*>(statement->expression);
+  EXPECT_EQ(expression->value, "applesauce");
+  EXPECT_EQ(expression->tokenLiteral(), "applesauce");
   
-  EXPECT_EQ(static_cast<ast::CreateDatabaseStatement*>(program->statements[0])->name->value, "db_1");
-  EXPECT_EQ(static_cast<ast::CreateDatabaseStatement*>(program->statements[1])->name->value, "db_2");
+
 }
