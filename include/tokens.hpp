@@ -3,6 +3,7 @@
  * - To be improved by setting tokens as bytes later
  */
 #include <string>
+#include <unordered_map>
 
 #ifndef __TOKENS_HPP__
 #define __TOKENS_HPP__
@@ -33,21 +34,49 @@ namespace token_type {
   const TokenType LPAREN = "(";
   const TokenType RPAREN = ")";
 
-  // Schema Types
+  // Keywords
   const TokenType TABLE = "TABLE";
-  const TokenType DATABASE = "DATABSE";
-
-  // Actions
+  const TokenType DATABASE = "DATABASE";
   const TokenType CREATE = "CREATE";
   const TokenType DROP = "DROP";
   const TokenType SELECT = "SELECT";
   const TokenType ALTER = "ALTER";
   const TokenType USE = "USE";
-
-  // Keywords
   const TokenType FROM = "FROM";
-}
+  const TokenType ADD = "ADD";
 
+  const TokenType COMMAND = ".";
+  const TokenType EXIT_CMD = "EXIT";
+
+  std::unordered_map<std::string, TokenType> keyword = {
+    {"TABLE", TABLE},
+    {"DATABASE", DATABASE},
+    {"CREATE", CREATE},
+    {"DROP", DROP},
+    {"SELECT", SELECT},
+    {"ALTER", ALTER},
+    {"USE", USE},
+    {"FROM", FROM},
+    {"ADD", ADD},
+    // Types
+    {"INT", INT_TYPE},
+    {"FLOAT", FLOAT_TYPE},
+    {"VARCHAR", VARCHAR_TYPE},
+    {"CHAR", CHAR_TYPE},
+    // Commands
+    {"EXIT", EXIT_CMD}
+  };
+
+  TokenType lookUpIdentifier(std::string ident) {
+    for (auto & ch : ident) {
+      ch = toupper(ch);
+    }
+    if (keyword.find(ident) != keyword.end()) {
+      return keyword[ident];
+    }
+    return IDENTIFIER;
+  }
+}
 
 struct Token {
   token_type::TokenType type;
@@ -55,13 +84,13 @@ struct Token {
 
   Token() {}
 
-  Token(token_type::TokenType type, std::string literal) :
-    type(type),
-    literal(literal) {}
-
   Token(token_type::TokenType type, char literal) :
     type(type),
     literal(std::string(1, literal)) {}
+
+  Token(token_type::TokenType type, std::string literal) :
+    type(type),
+    literal(literal) {}
 
   void operator=(const Token &rhs) {
     type = rhs.type;
