@@ -3,21 +3,72 @@
 
 #include <functional>
 #include <unordered_map>
+#include <string>
 #include <ast.hpp>
 #include <tokens.hpp>
 #include <lexer.hpp>
+
+using namespace std;
+
+enum class precedence {
+  LOWEST,
+  EQUALS,
+  LESS_GREATER,
+  SUM,
+  PRODUCT,
+  CALL
+};
+
+std::unordered_map<token_type::TokenType, precedence> precedences = {
+  {token_type::EQ, precedence::EQUALS},
+  {token_type::NE, precedence::EQUALS},
+  {token_type::LT, precedence::LESS_GREATER},
+  {token_type::GT, precedence::LESS_GREATER},
+  {token_type::PLUS, precedence::SUM},
+  {token_type::MINUS, precedence::SUM},
+  {token_type::SLASH, precedence::PRODUCT},
+  {token_type::ASTERISK, precedence::PRODUCT}
+};
+
+using exprParseFnType = function<ast::Expression*()>;
 
 class SQLParser {
 public:
   Lexer *lexer;
   Token currToken;
   Token peekToken;
-  unordered_map<token_type::TokenType, function<ast::Expression*()>> prefixParseFns;
+  unordered_map<token_type::TokenType, exprParseFnType*> prefixParseFns;
+
+  // Define parsing functions
+  exprParseFnType parseIdentifier = exprParseFnType([&, this]() {
+    return new ast::Identifier{currToken, currToken.literal};
+  });
+  exprParseFnType parseIntegerLiteral = exprParseFnType([&, this]() {
+    try {
+      int value = std::stoi(currToken.literal);
+      return new ast::IntegerLiteral{currToken, value};
+    } catch (const std::invalid_argument &ia) {
+      return static_cast<ast::IntegerLiteral*>(nullptr);
+    }
+  });
+  exprParseFnType parsePrefixExpression = exprParseFnType([&, this]() {
+    ast::PrefixExpression *expr = new ast::PrefixExpression{currToken, currToken.literal};
+    // Move on to expression after prefix
+    nextToken();
+    expr->right = parseExpression();
+    return expr;
+  });
 
   SQLParser(Lexer *lexer) : lexer(lexer) {
     // Set currToken and peekToken
     nextToken();
     nextToken();
+
+    // Map tokens to prefix parse functions
+    prefixParseFns[token_type::IDENTIFIER] = &parseIdentifier;
+    prefixParseFns[token_type::INT] = &parseIntegerLiteral;
+    prefixParseFns[token_type::BANG] = &parsePrefixExpression;
+    prefixParseFns[token_type::MINUS] = &parsePrefixExpression;
   };
 
   void nextToken() {
@@ -45,9 +96,9 @@ public:
         return parseCreateDatabaseStatement();
       } else if (peekToken.type == token_type::TABLE) {
         return parseCreateTableStatement();
-      } else {
-        return parseExpressionStatement();
       }
+    } else {
+      return parseExpressionStatement();
     }
     return nullptr;
   }
@@ -59,6 +110,7 @@ public:
       nextToken();
     } else {
       // Not identifier error
+      cerr << "Expected Token: IDENTIFIER, Got: " << peekToken.type << endl;
       return nullptr;
     }
     statement->name = new ast::Identifier{currToken, currToken.literal};
@@ -66,6 +118,7 @@ public:
     nextToken();
     if (currToken.type != token_type::SEMICOLON) {
       // Unexpected token error
+      cerr << "Unexpected Token. CreateDatabaseStatement should end after identifier." << endl;
       return nullptr;
     }
     return statement;
@@ -78,6 +131,7 @@ public:
       nextToken();
     } else {
       // Not identifier error
+      cerr << "Expected Token: IDENTIFIER, Got: " << peekToken.type << endl;
       return nullptr;
     }
     statement->name = new ast::Identifier{currToken, currToken.literal};
@@ -97,12 +151,16 @@ public:
     return statement;
   }
 
-  ast::Expression *parseExpression() {
-    function<ast::Expression*()> prefixFn = prefixParseFns[currToken.type];
-    if (prefixFn != nullptr) {
-      return nullptr;
+  ast::Expression *parseExpression(int precedence = 0) {
+    if (prefixParseFns.find(currToken.type) != prefixParseFns.end()){
+      exprParseFnType *prefixFn = prefixParseFns[currToken.type];
+      if (prefixFn != nullptr) {
+        return (*prefixFn)();
+      }
+    } else {
+      cerr << "No prefix parse function for token: " << currToken.type << endl;
     }
-    return prefixFn();
+    return nullptr;
   }
 
 };

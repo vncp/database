@@ -4,6 +4,7 @@
 #include <ast.hpp>
 #include <parser.hpp>
 #include <string>
+#include <tuple>
 
 TEST(LexerTest, ReadNextTokenSingleChar) {
   std::string input = "(),;";
@@ -108,7 +109,7 @@ TEST(ParserTest, CreateTableStatements) {
 }
 
 TEST(ParserTest, IdentifierExpressions) {
-  std::string input = "applesauce;";
+  std::string input = "applesauce123;";
   Lexer lexer(input);
   SQLParser parser(&lexer);
   ast::Program *program = parser.parseSql();
@@ -118,8 +119,41 @@ TEST(ParserTest, IdentifierExpressions) {
 
   ast::ExpressionStatement *statement = dynamic_cast<ast::ExpressionStatement*>(program->statements[0]);
   ast::Identifier *expression = dynamic_cast<ast::Identifier*>(statement->expression);
-  EXPECT_EQ(expression->value, "applesauce");
-  EXPECT_EQ(expression->tokenLiteral(), "applesauce");
-  
+  EXPECT_EQ(expression->value, "applesauce123");
+  EXPECT_EQ(expression->tokenLiteral(), "applesauce123");
+}
 
+TEST(ParserTest, IntegerLiteralExpressions) {
+  std::string input = "215;";
+  Lexer lexer(input);
+  SQLParser parser(&lexer);
+  ast::Program *program = parser.parseSql();
+
+  ASSERT_NE(program, nullptr);
+  ASSERT_EQ(program->statements.size(), 1);
+
+  ast::ExpressionStatement *statement = dynamic_cast<ast::ExpressionStatement*>(program->statements[0]);
+  ast::IntegerLiteral *expression = dynamic_cast<ast::IntegerLiteral*>(statement->expression);
+  EXPECT_EQ(expression->value, 215);
+  EXPECT_EQ(expression->tokenLiteral(), "215");
+}
+
+TEST(ParserTest, PrefixExpressions) {
+  std::vector<std::tuple<std::string, std::string, int>> tests;
+  tests.push_back(make_tuple("-112;", "-", 112));
+  tests.push_back(make_tuple("!30;", "!", 30));
+
+  for (auto test : tests) {
+    Lexer lexer(get<0>(test));
+    SQLParser parser(&lexer);
+    ast::Program *program = parser.parseSql();
+    ASSERT_NE(program, nullptr);
+    ASSERT_EQ(program->statements.size(), 1);
+    ast::ExpressionStatement *statement = dynamic_cast<ast::ExpressionStatement*>(program->statements[0]);
+    ast::PrefixExpression *expression = dynamic_cast<ast::PrefixExpression*>(statement->expression);
+    ast::IntegerLiteral *literal = dynamic_cast<ast::IntegerLiteral*>(expression->right);
+    EXPECT_EQ(expression->opsymbol, get<1>(test));
+    EXPECT_EQ(literal->tokenLiteral(), std::to_string(get<2>(test)));
+    EXPECT_EQ(literal->value, get<2>(test));
+  }
 }

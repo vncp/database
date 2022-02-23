@@ -27,6 +27,13 @@ public:
     position = nextPosition++;
   }
 
+  char peekChar() {
+    if (nextPosition >= input.length())
+      ch = 0;
+    else
+      return input[nextPosition];
+  }
+
   Token peekToken() {
     int old_position = position;
     int old_nextPosition = nextPosition;
@@ -60,6 +67,36 @@ public:
         break;
       case '.':
         token = {token_type::COMMAND, ch};
+        break;
+      case '!':
+        if (peekChar() ==  '=') {
+          token = {token_type::NE, "!="};
+          readChar();
+        } else {
+          token = {token_type::BANG, ch};
+        }
+        
+        break;
+      case '=':
+        token = {token_type::EQ, ch};
+        break;
+      case '<':
+        token = {token_type::LT, ch};
+        break;
+      case '>':
+        token = {token_type::GT, ch};
+        break;
+      case '+':
+        token = {token_type::PLUS, ch};
+        break;
+      case '-':
+        token = {token_type::MINUS, ch};
+        break;
+      case '/':
+        token = {token_type::SLASH, ch};
+        break;
+      case '*':
+        token = {token_type::ASTERISK, ch};
         break;
       case 0:
         token = Token{token_type::ENDOFFILE, ""};

@@ -47,6 +47,17 @@ namespace token_type {
   const TokenType FROM = "FROM";
   const TokenType ADD = "ADD";
 
+  // Arithmetic
+  const TokenType BANG = "!";
+  const TokenType EQ = "=";
+  const TokenType NE = "!=";
+  const TokenType LT = "<";
+  const TokenType GT = ">";
+  const TokenType PLUS = "+";
+  const TokenType MINUS = "-";
+  const TokenType SLASH = "/";
+  const TokenType ASTERISK = "*";
+
   const TokenType COMMAND = ".";
   const TokenType EXIT_CMD = "EXIT";
 

@@ -25,7 +25,6 @@ namespace ast {
   struct Expression : public Node {
     Expression() {}
      virtual string tokenLiteral() override {return "";};
-     virtual operator string() override {return "";};
   };
 
   struct ExpressionStatement : Statement {
@@ -66,6 +65,45 @@ namespace ast {
 
     string tokenLiteral() override {
       return token.literal;
+    }
+
+    operator string() override {
+      return token.literal;
+    }
+  };
+
+  struct IntegerLiteral : public Expression {
+    Token token;
+    int value;
+
+    IntegerLiteral(Token token, int64_t value) : token(token), value(value) {}
+
+    string tokenLiteral() override {
+      return token.literal;
+    }
+
+    operator string() override {
+      return token.literal;
+    }
+  };
+
+  struct PrefixExpression : public Expression {
+    Token token;
+    string opsymbol;
+    Expression *right;
+
+    PrefixExpression(Token token, string opsymbol) : 
+      token(token), 
+      opsymbol(opsymbol) {}
+
+    string tokenLiteral() override {
+      return token.literal;
+    }
+
+    operator string() override {
+      ostringstream ss;
+      ss << "(" << opsymbol << std::string(*right) << ")";
+      return ss.str();
     }
   };
 
