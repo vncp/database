@@ -1,5 +1,5 @@
 /*
- * Define Strings as tokens for simplicity. 
+ * Define Strings as tokens for simplicity.
  * - To be improved by setting tokens as bytes later
  */
 
@@ -10,7 +10,8 @@
 #include <sstream>
 #include <unordered_map>
 
-namespace token_type {
+namespace token_type
+{
   // set TokenType so we can change the type later
   using TokenType = std::string;
 
@@ -63,92 +64,102 @@ namespace token_type {
   const TokenType EXIT_CMD = "EXIT";
 
   std::unordered_map<std::string, TokenType> keyword = {
-    {"TABLE", TABLE},
-    {"DATABASE", DATABASE},
-    {"CREATE", CREATE},
-    {"DROP", DROP},
-    {"SELECT", SELECT},
-    {"ALTER", ALTER},
-    {"USE", USE},
-    {"FROM", FROM},
-    {"ADD", ADD},
+      {"TABLE", TABLE},
+      {"DATABASE", DATABASE},
+      {"CREATE", CREATE},
+      {"DROP", DROP},
+      {"SELECT", SELECT},
+      {"ALTER", ALTER},
+      {"USE", USE},
+      {"FROM", FROM},
+      {"ADD", ADD},
   };
 
   std::unordered_map<std::string, TokenType> types = {
-    // Types
-    {"INT", INT_TYPE},
-    {"FLOAT", FLOAT_TYPE},
-    {"VARCHAR", VARCHAR_TYPE},
-    {"CHAR", CHAR_TYPE},
+      // Types
+      {"INT", INT_TYPE},
+      {"FLOAT", FLOAT_TYPE},
+      {"VARCHAR", VARCHAR_TYPE},
+      {"CHAR", CHAR_TYPE},
   };
 
   std::unordered_map<std::string, TokenType> commands = {
-    // Commands
-    {"EXIT", EXIT_CMD}
-  };
+      // Commands
+      {"EXIT", EXIT_CMD}};
 
-  TokenType lookUpIdentifier(std::string ident) {
-    for (auto & ch : ident) {
+  TokenType lookUpIdentifier(std::string ident)
+  {
+    for (auto &ch : ident)
+    {
       ch = toupper(ch);
     }
-    if (commands.find(ident) != commands.end()) {
+    if (commands.find(ident) != commands.end())
+    {
       return commands[ident];
     }
-    if (types.find(ident) != types.end()) {
+    if (types.find(ident) != types.end())
+    {
       return types[ident];
     }
-    if (keyword.find(ident) != keyword.end()) {
+    if (keyword.find(ident) != keyword.end())
+    {
       return keyword[ident];
     }
     return IDENTIFIER;
   }
-  
-  TokenType lookUpType(std::string type) {
-    for (auto & ch : type) {
+
+  TokenType lookUpType(std::string type)
+  {
+    for (auto &ch : type)
+    {
       ch = toupper(ch);
     }
-    if (types.find(type) != types.end()) {
+    if (types.find(type) != types.end())
+    {
       return types[type];
     }
     return TYPE;
   }
 
-  TokenType lookUpCommand(std::string cmd) {
-    for (auto & ch : cmd) {
+  TokenType lookUpCommand(std::string cmd)
+  {
+    for (auto &ch : cmd)
+    {
       ch = toupper(ch);
     }
-    if (commands.find(cmd) != commands.end()) {
+    if (commands.find(cmd) != commands.end())
+    {
       return types[cmd];
     }
     return COMMAND;
   }
 }
 
-struct Token {
+struct Token
+{
   token_type::TokenType type;
   std::string literal;
 
   Token() {}
 
-  Token(token_type::TokenType type, char literal) :
-    type(type),
-    literal(std::string(1, literal)) {}
+  Token(token_type::TokenType type, char literal) : type(type),
+                                                    literal(std::string(1, literal)) {}
 
-  Token(token_type::TokenType type, std::string literal) :
-    type(type),
-    literal(literal) {}
+  Token(token_type::TokenType type, std::string literal) : type(type),
+                                                           literal(literal) {}
 
-  void operator=(const Token &rhs) {
+  void operator=(const Token &rhs)
+  {
     type = rhs.type;
     literal = rhs.literal;
   }
 
-  operator std::string() const {
+  operator std::string() const
+  {
     std::ostringstream ss;
     ss << "{ Token: '" << type << "', Literal: '" << literal << "' }";
     return ss.str();
   }
 };
-
 
 #endif /* __TOKENS_HPP__ */
