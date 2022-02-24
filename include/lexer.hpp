@@ -29,7 +29,7 @@ public:
 
   char peekChar() {
     if (nextPosition >= input.length())
-      ch = 0;
+      return 0;
     else
       return input[nextPosition];
   }
@@ -42,6 +42,7 @@ public:
     position = move(old_position);
     nextPosition = move(nextPosition);
     ch = move (old_ch);
+    return next;
   }
 
   Token nextToken() {

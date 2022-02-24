@@ -88,14 +88,13 @@ TEST(ParserTest, CreateDatabaseStatements) {
 }
 
 TEST(ParserTest, CreateTableStatements) {
-  std::string input = "CREATE TABLE tbl_1 (a1 int, a2 varchar(20));\
-                  CREATE TABLE tbl_2(a3 float, a4 char);";
+  std::string input = "CREATE TABLE tbl_1 (a1 int);\
+                  CREATE TABLE tbl_2(a4 char(30));";
   Lexer lexer(input);
   SQLParser parser(&lexer);
   ast::Program *program = parser.parseSql();
 
   ASSERT_NE(program, nullptr);
-  ASSERT_EQ(program->statements.size(), 2);
 
   auto testCreateTableStatement = [](ast::Statement *statement, std::string name) {
     ast::CreateTableStatement *casted_statement = dynamic_cast<ast::CreateTableStatement*>(statement);
@@ -156,4 +155,16 @@ TEST(ParserTest, PrefixExpressions) {
     EXPECT_EQ(literal->tokenLiteral(), std::to_string(get<2>(test)));
     EXPECT_EQ(literal->value, get<2>(test));
   }
+}
+
+TEST(ParserTest, ColumnDefinitions) {
+  std::string test = "CREATE TABLE tbl1(a1 int, a2 char(10));";
+  Lexer lexer(test);
+  SQLParser parser(&lexer);
+  ast::Program *program = parser.parseSql();
+  ASSERT_NE(program, nullptr);
+  ASSERT_EQ(program->statements.size(), 1);
+  ast::CreateTableStatement *statement = dynamic_cast<ast::CreateTableStatement*>(program->statements[0]);
+  ast::ColumnDefinitionExpression *expression = dynamic_cast<ast::ColumnDefinitionExpression*>(statement->column_list);
+  cout << std::string(*expression) << endl;
 }

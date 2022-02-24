@@ -135,11 +135,55 @@ public:
       return nullptr;
     }
     statement->name = new ast::Identifier{currToken, currToken.literal};
-    // Ignore Column Expression
-    while (currToken.type != token_type::SEMICOLON) {
-      nextToken();
+    cout << statement->tokenLiteral() << " TABLE" << endl;
+    cout << "Table name: " << string(*statement->name) << endl;
+
+    nextToken();
+    if (currToken.type != token_type::LPAREN) {
+      cerr << "Expected Token: LPAREN, Got: " << currToken.type << endl;
+      return nullptr;
+    }
+    nextToken();
+    statement->column_list = parseColumnDefinition();
+
+    nextToken();
+    if (currToken.type != token_type::RPAREN) {
+      cerr << "Expected closing parentheses after column list" << endl;
+      return nullptr;
+    }
+    nextToken();
+    if (currToken.type != token_type::SEMICOLON) {
+      cerr << "Unexpected Token CreateTableStatement should have semicolon after column list." << endl;
+      return nullptr;
     }
     return statement;
+  }
+
+  ast::ColumnDefinitionExpression *parseColumnDefinition() {
+    auto expr = new ast::ColumnDefinitionExpression{currToken, peekToken};
+    nextToken();
+    token_type::TokenType varType = token_type::lookUpType(currToken.literal);
+    if (varType == token_type::TYPE) {
+      cerr << "Undefined type: " << currToken.literal << endl;
+      return nullptr;
+    }
+    if (varType == token_type::VARCHAR_TYPE || varType == token_type::CHAR_TYPE) {
+      nextToken();
+      if (currToken.type != token_type::LPAREN) {
+        cerr << "Expected '('. Got " << string(currToken.type) << endl;;
+      }
+      expr->count = dynamic_cast<ast::IntegerLiteral*>(parseIntegerLiteral());
+      if (currToken.type != token_type::RPAREN) {
+        cerr << "Expected ')'. Got: " << string(currToken.type) << endl;
+      }
+    } else {
+      expr->count = static_cast<ast::IntegerLiteral*>(nullptr);
+    }
+    if (peekToken.type == token_type::COMMA) {
+
+
+    }
+    return expr;
   }
 
   ast::ExpressionStatement *parseExpressionStatement() {
@@ -162,6 +206,7 @@ public:
     }
     return nullptr;
   }
+
 
 };
 

@@ -11,35 +11,23 @@ using namespace std;
 namespace ast {
 
   struct Node {
-    Node() {}
-    virtual string tokenLiteral() = 0;
+    Token token;
+    Node(Token token) : token(token) {}
+    virtual string tokenLiteral() {
+      return token.literal;
+    };
     virtual operator string() = 0;
   };
 
   struct Statement : public Node {
-    Statement() {}
-    virtual string tokenLiteral() {return "";}
+    Statement(Token token) : Node(token) {}
     virtual operator string() {return "";}
-  };
-
-  struct Expression : public Node {
-    Expression() {}
-     virtual string tokenLiteral() override {return "";};
-  };
-
-  struct ExpressionStatement : Statement {
-    Token token;
-    Expression *expression;
-
-    ExpressionStatement(Token token): token(token) {}
-
-    string tokenLiteral() override {
-      return token.literal;
-    }
   };
 
   struct Program : public Node {
     vector<Statement*> statements;
+
+    Program() : Node(Token()) {}
 
     string tokenLiteral() override {
       if (statements.size() > 0) {
@@ -57,15 +45,20 @@ namespace ast {
     }
   };
 
+  struct Expression : public Node {
+    Expression(Token token) : Node(token) {}
+  };
+
+  struct ExpressionStatement : Statement {
+    Expression *expression;
+
+    ExpressionStatement(Token token): Statement(token) {}
+  };
+
   struct Identifier : public Expression {
-    Token token;
     string value;
 
-    Identifier(Token token, string value) : token(token), value(value) {}
-
-    string tokenLiteral() override {
-      return token.literal;
-    }
+    Identifier(Token token, string value) : Expression(token), value(value) {}
 
     operator string() override {
       return token.literal;
@@ -73,14 +66,9 @@ namespace ast {
   };
 
   struct IntegerLiteral : public Expression {
-    Token token;
     int value;
 
-    IntegerLiteral(Token token, int64_t value) : token(token), value(value) {}
-
-    string tokenLiteral() override {
-      return token.literal;
-    }
+    IntegerLiteral(Token token, int64_t value) : Expression(token), value(value) {}
 
     operator string() override {
       return token.literal;
@@ -93,12 +81,8 @@ namespace ast {
     Expression *right;
 
     PrefixExpression(Token token, string opsymbol) : 
-      token(token), 
+      Expression(token), 
       opsymbol(opsymbol) {}
-
-    string tokenLiteral() override {
-      return token.literal;
-    }
 
     operator string() override {
       ostringstream ss;
@@ -107,11 +91,33 @@ namespace ast {
     }
   };
 
+  struct ColumnDefinitionExpression : public Expression {
+    Token token_vartype;
+    IntegerLiteral *count;
+    ColumnDefinitionExpression *right;
+
+    ColumnDefinitionExpression(Token token, Token type) : 
+      Expression(token),
+      token_vartype(type) {}
+    
+    string tokenLiteral() override{
+      return token.literal + "_" +  token_vartype.literal;
+    }
+
+    operator string() override {
+      ostringstream ss;
+      ss << "(" << token.literal << " " << token_vartype.literal;
+      ss << "[" << std::string(*count) << "])";
+      ss << string(*right);
+      return ss.str();
+    }
+  };
+
   struct CreateDatabaseStatement : public Statement {
-    Token token; // late token_type::CREATE
     Identifier *name;
 
-    CreateDatabaseStatement(Token token) : token(token) {}
+    CreateDatabaseStatement(Token token) : Statement(token) {
+    }
 
     string tokenLiteral() override {
       return token.literal;
@@ -126,13 +132,12 @@ namespace ast {
   };
 
   struct CreateTableStatement : public Statement {
-    Token token;
     Identifier *name;
-    Expression *value;
+    ColumnDefinitionExpression *column_list;
 
-    CreateTableStatement(Token token) : token(token) {}
+    CreateTableStatement(Token token) : Statement(token) {}
 
-    string tokenLiteral() {
+    string tokenLiteral() override {
       return token.literal;
     }
 
@@ -140,8 +145,8 @@ namespace ast {
       ostringstream ss;
       ss << tokenLiteral() << " ";
       ss << std::string(*name);
-      if (value != nullptr) {
-        ss << std::string(*value);
+      if (column_list != nullptr) {
+        ss << std::string(*column_list);
       }
       ss << ";";
       return ss.str();

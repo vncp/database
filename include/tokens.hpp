@@ -20,6 +20,7 @@ namespace token_type {
 
   // Values/ID
   const TokenType IDENTIFIER = "IDENTIFIER";
+  const TokenType TYPE = "TYPE";
   const TokenType INT = "INT";
 
   // Types
@@ -71,13 +72,16 @@ namespace token_type {
     {"USE", USE},
     {"FROM", FROM},
     {"ADD", ADD},
+    // Commands
+    {"EXIT", EXIT_CMD}
+  };
+
+  std::unordered_map<std::string, TokenType> types = {
     // Types
     {"INT", INT_TYPE},
     {"FLOAT", FLOAT_TYPE},
     {"VARCHAR", VARCHAR_TYPE},
     {"CHAR", CHAR_TYPE},
-    // Commands
-    {"EXIT", EXIT_CMD}
   };
 
   TokenType lookUpIdentifier(std::string ident) {
@@ -87,7 +91,20 @@ namespace token_type {
     if (keyword.find(ident) != keyword.end()) {
       return keyword[ident];
     }
+    if (types.find(ident) != types.end()) {
+      return types[ident];
+    }
     return IDENTIFIER;
+  }
+  
+  TokenType lookUpType(std::string type) {
+    for (auto & ch : type) {
+      ch = toupper(ch);
+    }
+    if (types.find(type) != types.end()) {
+      return types[type];
+    }
+    return TYPE;
   }
 }
 
