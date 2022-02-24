@@ -1,19 +1,22 @@
 #ifndef __REPL_HPP__
 #define __REPL_HPP__
 
-#include <string_view>
 #include <lexer.hpp>
 #include <parser.hpp>
 #include <tokens.hpp>
 #include <ast.hpp>
 #include <iostream>
+#include <string>
+#include <data_objs.hpp>
+#include <proto_generator.hpp>
 
+const std::string repl_prompt = "> ";
 
-const string_view REPL_PROMPT = "> ";
 void repl() {
+  ProtoGenerator pg("db_1", "tbl_1");
   std::string input;
   while (true) {
-    std::cout << REPL_PROMPT;
+    std::cout << repl_prompt;
     getline(cin, input);
     Lexer lexer(input);
     SQLParser parser(&lexer);
