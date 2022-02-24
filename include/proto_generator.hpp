@@ -4,43 +4,89 @@
 #include <iostream>
 #include <string>
 #include <string_view>
+#include <sstream>
 #include <fstream>
 #include <experimental/filesystem>
 #include <data_objs.hpp>
 
 namespace fs = std::experimental::filesystem;
 
-const std::string PROTO_VERSION = "syntax = \"proto3\";";
+namespace paths {
+  const std::string PROTO_VERSION = "syntax = \"proto3\";";
+  auto PROTOC_PATH = fs::current_path() / "etc" / "protobuf" / "src" / "protoc";
+  auto PROJECT_ROOT = fs::current_path();
+  auto DATA_PATH = fs::current_path() / "data";
+};
+using namespace paths;
 
 class ProtoGenerator {
-  size_t max_field_num = 1;
+  DatabaseObject db_obj;
+
+  void verifyProtoc() {
+    if (!fs::exists(PROTOC_PATH)) {
+      std::cout << "This project depends on Google Protocol Buffers to store data as bytes.\n" <<
+               "The application will now download, build, and install the protobuf\n" <<
+               "compiler and proto-cpp in the local application directory (~20 mins).\n" <<
+               "CTRL-C to exit or Enter to accept.\n";
+      int a;
+      cin >> a;
+      system((PROJECT_ROOT / "install_protoc.sh").c_str());
+    } else {
+      std::cout << "Found protoc binary at " << PROTOC_PATH << endl;
+    }
+    if (!fs::exists(PROTOC_PATH)) {
+      cerr << "Could not install protoc." << endl;
+    }
+    // Make sure out directory for protoc exists
+    fs::create_directories(PROJECT_ROOT / "include" / "generated");
+  }
+
+  // Create a new Table
+  void protocGenerate(DatabaseObject database, TableObject table) {
+    if (!fs::exists(DATA_PATH / database.name())) {
+      fs::create_directories(DATA_PATH / database.name());
+    }
+    std::ofstream protoFile(DATA_PATH / database.name());
+    protoFile << PROTO_VERSION << "\n";
+    protoFile << "package " << database.name() << ";\n";
+    protoFile << generateMetadataComment(table.maxFieldNum, table.name(), database.name()) << "\n";
+    protoFile << "message " << table.name() << " {\n";
+    for (auto field : table.fields) {
+      protoFile << "\t" << get<0>(field.second) << " " << field.first << " = " << get<2>(field.second) << ";\n";
+    }
+    protoFile << "}\n";
+    protoFile.flush();
+    protoFile.close();
+  }
+  
+  static std::string generateMetadataComment(const int maxNumField,
+                                             std::string_view tableName,
+                                             std::string_view databaseName) {
+    std::ostringstream ss;
+    ss << "/*    METADATA-START\n";
+    ss << "maxFieldNum " << maxNumField << std::endl;
+    ss << "tableName " << tableName << std::endl; 
+    ss << "databaseName " << databaseName << std::endl;
+    ss << "METADATA-END    */\n";
+    return ss.str();
+  }
 
 public:
-  ProtoGenerator(std::string database_name, std::string table_name) {
-    auto path = fs::current_path();
-    path += "/" + database_name;
-    if (!fs::is_directory(path)) {
-      fs::create_directory(path);
+  ProtoGenerator(DatabaseObject db_obj) : db_obj(db_obj) {
+    verifyProtoc();
+    auto dbNamePath = DATA_PATH / db_obj.name();
+    if (!fs::exists(dbNamePath)) {
+      fs::create_directories(dbNamePath);
     }
-    path += "/" + table_name + ".proto";
-    // If the path exists then read the max (last) field number
-    int maxFieldCandidate = 1;
-    std::string prefix = "";
-    if (fs::exists(path)) {
-      std::ifstream proto_file_in(path);
-      while (prefix != "MaxFieldNum") {
-        proto_file_in >> prefix;
+    for (const auto &table : db_obj.tables) {
+      // If there's not a file for a table, create the table
+      if (!fs::exists(dbNamePath / (std::string(table.name()) + ".proto"))){
+        protocGenerate(db_obj, table);
       }
-      proto_file_in >> maxFieldCandidate;
-      proto_file_in.close();
-    } else { // Generate file if it doesn't exist
-      std::ofstream proto_file_out(path);
-      proto_file_out << "/* META DATA, DO NOT DELETE\n\tMaxFieldNum " << max_field_num << "\n*/\n";
-      proto_file_out << PROTO_VERSION;
-      proto_file_out.flush();
-      proto_file_out.close();
     }
   }
+
+
 
 };
 

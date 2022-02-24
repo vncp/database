@@ -13,7 +13,8 @@
 const std::string repl_prompt = "> ";
 
 void repl() {
-  ProtoGenerator pg("db_1", "tbl_1");
+  DatabaseObject("db_1");
+
   std::string input;
   while (true) {
     std::cout << repl_prompt;

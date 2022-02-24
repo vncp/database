@@ -3,6 +3,8 @@
 #include <lexer.hpp>
 #include <ast.hpp>
 #include <parser.hpp>
+#include <data_objs.hpp>
+#include <proto_generator.hpp>
 #include <string>
 #include <tuple>
 
@@ -225,4 +227,10 @@ TEST(ParserTest, ParseCommands) {
   ast::Statement *statement = program->statements[0];
   EXPECT_EQ(std::string(*statement), "EXIT");
   EXPECT_EQ(std::string(statement->token.type), "EXIT");
+}
+
+TEST(ProtoGenerator, Instantiation) {
+  auto db = DatabaseObject("db_1");
+  db.insertTable(TableObject("tbl_1"));
+  ProtoGenerator pg(db);
 }

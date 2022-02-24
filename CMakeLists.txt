@@ -45,6 +45,7 @@ TARGET_LINK_LIBRARIES(
   sql_test
   gtest_main
   INCLUDES
+  ${CXX_FILESYSTEM_LIBRARIES}
 )
 
 # Discover and run tests in binary
