@@ -101,14 +101,16 @@ namespace ast {
       token_vartype(type) {}
     
     string tokenLiteral() override{
-      return token.literal + "_" +  token_vartype.literal;
+      return token.literal + "_" +  token_vartype.literal + (count ? ("(" + to_string(count->value) + ")") : "");
     }
 
     operator string() override {
       ostringstream ss;
       ss << "(" << token.literal << " " << token_vartype.literal;
-      ss << "[" << std::string(*count) << "])";
-      ss << string(*right);
+      if (count != nullptr) {
+        ss << "[" << std::string(*count) << "]";
+      }
+      ss << ")";
       return ss.str();
     }
   };

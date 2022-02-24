@@ -135,8 +135,6 @@ public:
       return nullptr;
     }
     statement->name = new ast::Identifier{currToken, currToken.literal};
-    cout << statement->tokenLiteral() << " TABLE" << endl;
-    cout << "Table name: " << string(*statement->name) << endl;
 
     nextToken();
     if (currToken.type != token_type::LPAREN) {
@@ -145,10 +143,8 @@ public:
     }
     nextToken();
     statement->column_list = parseColumnDefinition();
-
-    nextToken();
     if (currToken.type != token_type::RPAREN) {
-      cerr << "Expected closing parentheses after column list" << endl;
+      cerr << "Expected closing parentheses after column list. Got: " << string(currToken.type) << endl;
       return nullptr;
     }
     nextToken();
@@ -172,16 +168,21 @@ public:
       if (currToken.type != token_type::LPAREN) {
         cerr << "Expected '('. Got " << string(currToken.type) << endl;;
       }
+      nextToken();
       expr->count = dynamic_cast<ast::IntegerLiteral*>(parseIntegerLiteral());
+      nextToken();
       if (currToken.type != token_type::RPAREN) {
         cerr << "Expected ')'. Got: " << string(currToken.type) << endl;
       }
     } else {
       expr->count = static_cast<ast::IntegerLiteral*>(nullptr);
     }
-    if (peekToken.type == token_type::COMMA) {
-
-
+    nextToken();
+    if (currToken.type == token_type::COMMA) {
+      nextToken();
+      expr->right = parseColumnDefinition();
+    } else {
+      expr->right = static_cast<ast::ColumnDefinitionExpression*>(nullptr);
     }
     return expr;
   }

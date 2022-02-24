@@ -166,5 +166,16 @@ TEST(ParserTest, ColumnDefinitions) {
   ASSERT_EQ(program->statements.size(), 1);
   ast::CreateTableStatement *statement = dynamic_cast<ast::CreateTableStatement*>(program->statements[0]);
   ast::ColumnDefinitionExpression *expression = dynamic_cast<ast::ColumnDefinitionExpression*>(statement->column_list);
-  cout << std::string(*expression) << endl;
+  
+  EXPECT_EQ(expression->tokenLiteral(), "a1_int");
+  EXPECT_EQ(expression->token.literal, "a1");
+  EXPECT_EQ(expression->token_vartype.literal, "int");
+  EXPECT_EQ(expression->count, nullptr);
+  expression = expression->right;
+  EXPECT_EQ(expression->tokenLiteral(), "a2_char(10)");
+  EXPECT_EQ(expression->token.literal, "a2");
+  EXPECT_EQ(expression->token_vartype.literal, "char");
+  ASSERT_NE(expression->count, nullptr);
+  EXPECT_EQ(std::string(expression->count->token.type), "INT");
+  EXPECT_EQ(expression->count->token.literal, "10");
 }
