@@ -21,7 +21,10 @@ namespace ast {
 
   struct Statement : public Node {
     Statement(Token token) : Node(token) {}
-    virtual operator string() {return "";}
+
+    virtual operator string() override {
+      return token.literal;
+    }
   };
 
   struct Program : public Node {
@@ -110,7 +113,7 @@ namespace ast {
       if (count != nullptr) {
         ss << "[" << std::string(*count) << "]";
       }
-      ss << ")";
+      ss << (right != nullptr ? "), " + std::string(*right) : ")]");
       return ss.str();
     }
   };
@@ -127,7 +130,7 @@ namespace ast {
 
     operator string() override {
       ostringstream ss;
-      ss << tokenLiteral() << " ";
+      ss << tokenLiteral() << " DATABASE ";
       ss << std::string(*name) << ";";
       return ss.str();
     }
@@ -145,8 +148,8 @@ namespace ast {
 
     operator string() override {
       ostringstream ss;
-      ss << tokenLiteral() << " ";
-      ss << std::string(*name);
+      ss << tokenLiteral() << " TABLE ";
+      ss << std::string(*name) << "[";
       if (column_list != nullptr) {
         ss << std::string(*column_list);
       }
@@ -154,6 +157,5 @@ namespace ast {
       return ss.str();
     }
   };
-
 };
 #endif /* __AST_HPP__ */

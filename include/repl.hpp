@@ -3,27 +3,35 @@
 
 #include <string_view>
 #include <lexer.hpp>
+#include <parser.hpp>
 #include <tokens.hpp>
+#include <ast.hpp>
 #include <iostream>
 
 
-const string_view REPL_PROMPT = "Vincent > ";
+const string_view REPL_PROMPT = "> ";
 void repl() {
   std::string input;
   while (true) {
     std::cout << REPL_PROMPT;
     getline(cin, input);
     Lexer lexer(input);
-    for (Token token = lexer.nextToken(); token.type != token_type::ENDOFFILE; token = lexer.nextToken()) {
-      std::cout << std::string(token) << std::endl;
-      if (token.type == token_type::COMMAND) {
-        token = lexer.nextToken();
-        if (token.type == token_type::EXIT_CMD) {
-          std::cout << std::string(token) << std::endl;
-          return ;
-        }
-      }
+    SQLParser parser(&lexer);
+    try {
+      ast::Program *program = parser.parseSql();
+      cout << std::string(*program) << endl;
+    } catch (const expected_token_error &e) {
+      cerr << e.what() << endl;
+    } catch (const unknown_type_error &e) {
+      cerr << e.what() << endl;
+    } catch (const unassigned_parse_function_error &e) {
+      cerr << e.what() << endl;
+    } catch (const unknown_command_error &e) {
+      cerr << e.what() << endl;
+    } catch (const runtime_error &e) {
+      cerr << e.what() << endl;
     }
+
   }
 }
 

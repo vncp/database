@@ -179,3 +179,50 @@ TEST(ParserTest, ColumnDefinitions) {
   EXPECT_EQ(std::string(expression->count->token.type), "INT");
   EXPECT_EQ(expression->count->token.literal, "10");
 }
+
+TEST(ParserTest, ParserErrors) {
+  std::string test = "CREATE TABLE TABLE;";
+  Lexer lexer(test);
+  SQLParser parser(&lexer);
+  try {
+    ast::Program *program = parser.parseSql();
+    ASSERT_NE(program, nullptr);
+    ASSERT_EQ(program->statements.size(), 1);
+  } catch (expected_token_error e) {
+    EXPECT_EQ(string(e.what()), "Expected Token: 'IDENTIFIER' but got: 'TABLE'.");
+  }
+
+  test = "CREATE TABLE tbl1(a1 juice, a2 char(10));";
+  lexer = Lexer(test);
+  parser = SQLParser(&lexer);
+  try {
+    ast::Program *program = parser.parseSql();
+    ASSERT_NE(program, nullptr);
+    ASSERT_EQ(program->statements.size(), 1);
+  } catch (unknown_type_error e) {
+    EXPECT_EQ(string(e.what()), "Unknown Type: 'juice'.");
+  }
+
+  test = "CREATE TABLE tbl1(a1 int, a2 char(+10));";
+  lexer = Lexer(test);
+  parser = SQLParser(&lexer);
+  try {
+    ast::Program *program = parser.parseSql();
+    ASSERT_NE(program, nullptr);
+    ASSERT_EQ(program->statements.size(), 1);
+  } catch (unassigned_parse_function_error e) {
+    EXPECT_EQ(string(e.what()), "Parse error: no parse functions found for token:  '+'.");
+  }
+}
+
+TEST(ParserTest, ParseCommands) {
+  std::string test = ".EXIT";
+  Lexer lexer(test);
+  SQLParser parser(&lexer);
+  ast::Program *program = parser.parseSql();
+  ASSERT_NE(program, nullptr);
+  ASSERT_EQ(program->statements.size(), 1);
+  ast::Statement *statement = program->statements[0];
+  EXPECT_EQ(std::string(*statement), "EXIT");
+  EXPECT_EQ(std::string(statement->token.type), "EXIT");
+}

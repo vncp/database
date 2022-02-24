@@ -72,8 +72,6 @@ namespace token_type {
     {"USE", USE},
     {"FROM", FROM},
     {"ADD", ADD},
-    // Commands
-    {"EXIT", EXIT_CMD}
   };
 
   std::unordered_map<std::string, TokenType> types = {
@@ -84,15 +82,23 @@ namespace token_type {
     {"CHAR", CHAR_TYPE},
   };
 
+  std::unordered_map<std::string, TokenType> commands = {
+    // Commands
+    {"EXIT", EXIT_CMD}
+  };
+
   TokenType lookUpIdentifier(std::string ident) {
     for (auto & ch : ident) {
       ch = toupper(ch);
     }
-    if (keyword.find(ident) != keyword.end()) {
-      return keyword[ident];
+    if (commands.find(ident) != commands.end()) {
+      return commands[ident];
     }
     if (types.find(ident) != types.end()) {
       return types[ident];
+    }
+    if (keyword.find(ident) != keyword.end()) {
+      return keyword[ident];
     }
     return IDENTIFIER;
   }
@@ -105,6 +111,16 @@ namespace token_type {
       return types[type];
     }
     return TYPE;
+  }
+
+  TokenType lookUpCommand(std::string cmd) {
+    for (auto & ch : cmd) {
+      ch = toupper(ch);
+    }
+    if (commands.find(cmd) != commands.end()) {
+      return types[cmd];
+    }
+    return COMMAND;
   }
 }
 

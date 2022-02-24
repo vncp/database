@@ -4,6 +4,7 @@
 #include <functional>
 #include <unordered_map>
 #include <string>
+#include <cstring>
 #include <ast.hpp>
 #include <tokens.hpp>
 #include <lexer.hpp>
@@ -17,6 +18,72 @@ enum class precedence {
   SUM,
   PRODUCT,
   CALL
+};
+
+class expected_token_error : public runtime_error {
+  std::string token;
+  std::string expected;
+
+public:
+  expected_token_error(const std::string &what_arg, const std::string&expected) :
+    runtime_error(what_arg), 
+    token(what_arg),
+    expected(expected) {}
+
+  const char *what() const noexcept override {
+    string err = ("Expected Token: '" + expected + "' but got: '" + token + "'.");
+    char *err_cstr = new char[err.length()+1];
+    strcpy(err_cstr, err.c_str());
+    return err_cstr;
+  }
+};
+
+class unknown_command_error : public runtime_error {
+  std::string cmd;
+
+public:
+  unknown_command_error(const std::string &what_arg) :
+    runtime_error(what_arg), 
+    cmd(what_arg) {}
+
+  virtual const char *what() const noexcept override {
+    string err = ("Unknown Command: '" + cmd + "'.");
+    char *err_cstr = new char[err.length()+1];
+    strcpy(err_cstr, err.c_str());
+    return err_cstr;
+  }
+};
+
+class unknown_type_error : public runtime_error {
+  std::string type;
+
+public:
+  unknown_type_error(const std::string &what_arg) :
+    runtime_error(what_arg), 
+    type(what_arg) {}
+
+  virtual const char *what() const noexcept override {
+    string err = ("Unknown Type: '" + type + "'.");
+    char *err_cstr = new char[err.length()+1];
+    strcpy(err_cstr, err.c_str());
+    return err_cstr;
+  }
+};
+
+class unassigned_parse_function_error : public runtime_error {
+  std::string token;
+
+public:
+  unassigned_parse_function_error(const std::string &what_arg) :
+    runtime_error(what_arg), 
+    token(what_arg) {}
+
+  virtual const char *what() const noexcept override {
+    string err = ("Parse error: no parse functions found for token:  '" + token + "'.");
+    char *err_cstr = new char[err.length()+1];
+    strcpy(err_cstr, err.c_str());
+    return err_cstr;
+  }
 };
 
 std::unordered_map<token_type::TokenType, precedence> precedences = {
@@ -91,7 +158,9 @@ public:
   }
 
   ast::Statement *parseStatement() {
-    if (currToken.type == token_type::CREATE) {
+    if (currToken.type == token_type::COMMAND) {
+      return parseCommand();
+    } else if (currToken.type == token_type::CREATE) {
       if (peekToken.type == token_type::DATABASE) {
         return parseCreateDatabaseStatement();
       } else if (peekToken.type == token_type::TABLE) {
@@ -100,7 +169,15 @@ public:
     } else {
       return parseExpressionStatement();
     }
-    return nullptr;
+  }
+
+  ast::Statement *parseCommand() {
+    nextToken();
+    if (token_type::lookUpCommand(currToken.literal) != token_type::COMMAND) {
+      return new ast::Statement{currToken};
+    } else {
+      throw unknown_command_error(currToken.literal);
+    }
   }
 
   ast::CreateDatabaseStatement *parseCreateDatabaseStatement() {
@@ -109,17 +186,14 @@ public:
     if (peekToken.type == token_type::IDENTIFIER) {
       nextToken();
     } else {
-      // Not identifier error
-      cerr << "Expected Token: IDENTIFIER, Got: " << peekToken.type << endl;
-      return nullptr;
+      throw expected_token_error(peekToken.literal, "IDENTIFIER");
     }
     statement->name = new ast::Identifier{currToken, currToken.literal};
     // Ignore everything else
     nextToken();
     if (currToken.type != token_type::SEMICOLON) {
       // Unexpected token error
-      cerr << "Unexpected Token. CreateDatabaseStatement should end after identifier." << endl;
-      return nullptr;
+      throw expected_token_error(currToken.literal, ";");
     }
     return statement;
   }
@@ -131,26 +205,22 @@ public:
       nextToken();
     } else {
       // Not identifier error
-      cerr << "Expected Token: IDENTIFIER, Got: " << peekToken.type << endl;
-      return nullptr;
+      throw expected_token_error(peekToken.literal, "IDENTIFIER");
     }
     statement->name = new ast::Identifier{currToken, currToken.literal};
 
     nextToken();
     if (currToken.type != token_type::LPAREN) {
-      cerr << "Expected Token: LPAREN, Got: " << currToken.type << endl;
-      return nullptr;
+      throw expected_token_error(currToken.literal, "(");
     }
     nextToken();
     statement->column_list = parseColumnDefinition();
     if (currToken.type != token_type::RPAREN) {
-      cerr << "Expected closing parentheses after column list. Got: " << string(currToken.type) << endl;
-      return nullptr;
+      throw expected_token_error(currToken.literal, ")");
     }
     nextToken();
     if (currToken.type != token_type::SEMICOLON) {
-      cerr << "Unexpected Token CreateTableStatement should have semicolon after column list." << endl;
-      return nullptr;
+      throw expected_token_error(currToken.literal, ";");
     }
     return statement;
   }
@@ -160,19 +230,19 @@ public:
     nextToken();
     token_type::TokenType varType = token_type::lookUpType(currToken.literal);
     if (varType == token_type::TYPE) {
-      cerr << "Undefined type: " << currToken.literal << endl;
-      return nullptr;
+
+      throw unknown_type_error(currToken.literal);
     }
     if (varType == token_type::VARCHAR_TYPE || varType == token_type::CHAR_TYPE) {
       nextToken();
       if (currToken.type != token_type::LPAREN) {
-        cerr << "Expected '('. Got " << string(currToken.type) << endl;;
+        throw expected_token_error(currToken.literal, "(");
       }
       nextToken();
-      expr->count = dynamic_cast<ast::IntegerLiteral*>(parseIntegerLiteral());
+      expr->count = dynamic_cast<ast::IntegerLiteral*>(parseExpression());
       nextToken();
       if (currToken.type != token_type::RPAREN) {
-        cerr << "Expected ')'. Got: " << string(currToken.type) << endl;
+        throw expected_token_error(currToken.literal, ")");
       }
     } else {
       expr->count = static_cast<ast::IntegerLiteral*>(nullptr);
@@ -203,7 +273,7 @@ public:
         return (*prefixFn)();
       }
     } else {
-      cerr << "No prefix parse function for token: " << currToken.type << endl;
+      throw unassigned_parse_function_error(string(currToken.type));
     }
     return nullptr;
   }
