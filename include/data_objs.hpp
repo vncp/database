@@ -19,28 +19,39 @@ class TableObject
 public:
   int maxFieldNum;
   std::string table_name;
-  // fieldname, TUPLE: (type, int<1> count, int<2> fieldNum)
-  std::unordered_map<std::string, std::tuple<std::string, int, int>> fields;
+  // fieldname, TUPLE: (type<0>, int<1> count, int<2> fieldNum, string<3> SQLType )
+  std::unordered_map<std::string, std::tuple<std::string, int, int, std::string>> fields;
 
   TableObject(std::string name, int maxFieldNum = 0) : table_name(name),
                                                        maxFieldNum(maxFieldNum) {}
-
+                                                      
   std::string name() const
   {
     return table_name;
   }
 
-  bool addField(std::string name, std::string type_name, int count = 1)
+  bool addField(std::string name, std::string type_name, int count, std::string sql_type)
   {
     if (fields.find(name) != fields.end())
     {
       return false;
     }
-    fields[name] = std::make_tuple(type_name, count, ++maxFieldNum);
+    fields[name] = std::make_tuple(type_name, count, ++maxFieldNum, sql_type);
+    return true;
+  }
+// For reloading
+  bool addField(std::string name, std::string type_name, int fieldNum, int count, std::string sqltype)
+  {
+    if (fields.find(name) != fields.end())
+    {
+      return false;
+    }
+    fields[name] = std::make_tuple(type_name, count, fieldNum, sqltype);
+    return true;
   }
 
   // Check if a field exists
-  bool has(std::string field) const
+  bool has(std::string field)
   {
     return fields.find(field) != fields.end();
   }
@@ -53,6 +64,7 @@ private:
 
 public:
   std::vector<TableObject> tables;
+
   DatabaseObject(std::string name) : database_name(name)
   {
   }
@@ -62,12 +74,7 @@ public:
     return database_name;
   }
 
-  std::string tableName(const int idx) const
-  {
-    return tables[idx].name();
-  }
-
-  void insertTable(const TableObject table)
+  void insertTable(TableObject table)
   {
     tables.push_back(table);
   }

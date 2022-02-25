@@ -12,11 +12,15 @@
 #include <objects.hpp>
 #include <evaluator.hpp>
 
-const std::string repl_prompt = "> ";
+const std::string repl_prompt = ">> ";
 
 void repl()
 {
+  DatabaseObject nil_database("nil");
+  DatabaseObject *current_database = &nil_database;
   std::string input;
+  cout << "Vincent Pham - CS457 Database Management Systems\n";
+  cout << "PA1 - SQL Lexer, Parser, and Evaluator\n";
   while (true)
   {
     std::cout << repl_prompt;
@@ -26,7 +30,7 @@ void repl()
     try
     {
       ast::Program *program = parser.parseSql();
-      cout << eval(program)->inspect() << endl;
+      eval(program, current_database);
     }
     catch (const expected_token_error &e)
     {
