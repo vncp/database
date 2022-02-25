@@ -5,6 +5,7 @@ Simple SQL Implementation
 ```
 cmake -S . -B build && cmake --build build && ./build/sql_test && ./build/main << ./PA1_test.sql
 ```
+An install script of for protobuffers is included, but not yet needed for testing.
 
 ## Overview
 This project features a lexer, parser, evaluator for SQL. It also features a protocol buffer generator which is generated when SQL commands are read. The data models are stored as database models which also have commented metadata in order to conver it back to a "SQL-like" type.
