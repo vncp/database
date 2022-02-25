@@ -1,6 +1,8 @@
 /*
- * Define Strings as tokens for simplicity.
- * - To be improved by setting tokens as bytes later
+ * AUTHOR: VINCENT PHAM
+ * CLASS: CS457 DATABASE MANAGEMENT SYSTEMS
+ * FILE DESC: Tokens and some helper functions for looking up tokens. 
+ * They're implemented as strings rather than an enum since it's useful for debugging.
  */
 
 #ifndef __TOKENS_HPP__

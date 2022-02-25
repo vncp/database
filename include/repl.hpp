@@ -1,3 +1,8 @@
+/*
+ * AUTHOR: VINCENT PHAM
+ * CLASS: CS457 DATABASE MANAGEMENT SYSTEMS
+ * FILE DESC: REPL loop to handle errors and take stdin as input.
+ */
 #ifndef __REPL_HPP__
 #define __REPL_HPP__
 
@@ -7,12 +12,15 @@
 #include <ast.hpp>
 #include <iostream>
 #include <string>
+#include <unistd.h>
+#include <stdio.h>
 #include <data_objs.hpp>
 #include <proto_generator.hpp>
 #include <objects.hpp>
 #include <evaluator.hpp>
 
-const std::string repl_prompt = ">> ";
+// Empty prompt if stdin is not from tty
+const std::string repl_prompt = isatty(fileno(stdin)) ? ">> " : "";
 
 void repl()
 {

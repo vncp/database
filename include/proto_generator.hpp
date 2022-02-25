@@ -111,11 +111,7 @@ public:
     }
     for (auto table : db_obj->tables)
     {
-      // If there's not a file for a table, create the table
-      if (!fs::exists(dbNamePath / (table.name() + ".proto")))
-      {
-        protocGenerate(db_obj, table);
-      }
+      protocGenerate(db_obj, table);
     }
   }
 
@@ -165,15 +161,16 @@ public:
       {
         fieldmapType fields = db.tables[i].fields;
         std::ostringstream ss;
-        ss << "| ";
+        ss << "|";
         for (auto [name, field] : fields)
         {
-          ss << name << get<3>(field) << (get<1>(field) > 1 ? ("(" + to_string(get<1>(field)) + ") |") : " |");
+          ss << " " << name << " " << get<3>(field);
+          ss << (get<1>(field) > 1 ? ("(" + to_string(get<1>(field)) + ") |") : " |");
         }
         return ss.str();
       }
     }
-    return "Table " + tbl_name + " doesn't exist";
+    return "!Failed to query tbl_1 because it does not exist.";
   }
 
   static DatabaseObject addFieldTBL(std::string db_name, std::string tbl_name, std::string fieldName, std::string fieldCount, std::string fieldType)
@@ -184,6 +181,8 @@ public:
       if (db.tables[i].name() == tbl_name)
       {
         db.tables[i].addField(fieldName, typeMap[fieldType], atoi(fieldCount.c_str()), fieldType);
+        // Memory instance updated, now apply to file. Current will be updated after return
+        ProtoGenerator pg(&db);
         return db;
       }
     }
@@ -204,11 +203,11 @@ public:
   {
     DatabaseObject res(db_name);
     auto db_path = (DATA_PATH / db_name);
+    std::string databaseName = "";
+    std::string tableName = "";
     for (const auto &file : fs::directory_iterator(db_path))
     {
       auto proto_path = file.path();
-      std::string databaseName = "";
-      std::string tableName = "";
       int maxFieldNum = 0;
 
       std::ifstream db_file(proto_path);
@@ -264,6 +263,7 @@ public:
       res.insertTable(tbl);
       db_file.close();
     }
+    return res;
   }
 };
 

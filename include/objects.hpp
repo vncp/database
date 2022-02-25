@@ -3,6 +3,7 @@
  * CLASS: CS457 DATABASE MANAGEMENT SYSTEMS
  * FILE DESC: Objects created by the evaluator. Mainly for
  * later use when there are arithmetic and equality expressions.
+ * For now, only the integer object is used in order to give returns.
  */
 #ifndef __OBJECTS_H__
 #define __OBJECTS_H__

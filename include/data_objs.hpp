@@ -1,3 +1,9 @@
+/*
+ * AUTHOR: VINCENT PHAM
+ * CLASS: CS457 DATABASE MANAGEMENT SYSTEMS
+ * FILE DESC: A simple object representation of the data needed
+ * to generate and translate between protobuf files and program memory.
+ */
 #ifndef __DATA_OBJS__
 #define __DATA_OBJS__
 
@@ -18,7 +24,7 @@ class TableObject
 {
 public:
   int maxFieldNum;
-  std::string table_name;
+  std::string table_name = "NAME_ERROR";
   // fieldname, TUPLE: (type<0>, int<1> count, int<2> fieldNum, string<3> SQLType )
   std::unordered_map<std::string, std::tuple<std::string, int, int, std::string>> fields;
 

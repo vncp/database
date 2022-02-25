@@ -240,12 +240,12 @@ public:
     }
   }
 
-  ast::Statement *parseCommand()
+  ast::CommandStatement *parseCommand()
   {
     nextToken();
     if (token_type::lookUpCommand(currToken.literal) != token_type::COMMAND)
     {
-      return new ast::Statement{currToken};
+      return new ast::CommandStatement{currToken};
     }
     else
     {

@@ -58,7 +58,6 @@ public:
     {
       readChar();
     }
-
     switch (ch)
     {
     case ';':
@@ -86,7 +85,6 @@ public:
       {
         token = {token_type::BANG, ch};
       }
-
       break;
     case '=':
       token = {token_type::EQ, ch};
@@ -101,6 +99,13 @@ public:
       token = {token_type::PLUS, ch};
       break;
     case '-':
+      // Skip Comment
+      if (peekChar() == '-') {
+        while(ch != '\0') {
+          readChar();
+        }
+        readChar();
+      }
       token = {token_type::MINUS, ch};
       break;
     case '/':
@@ -109,7 +114,7 @@ public:
     case '*':
       token = {token_type::ASTERISK, ch};
       break;
-    case 0:
+    case '\0':
       token = Token{token_type::ENDOFFILE, ""};
       break;
     default:

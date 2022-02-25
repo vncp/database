@@ -6,7 +6,6 @@
  * function which should be unique for every node.
  */
 
-
 #ifndef __AST_HPP__
 #define __AST_HPP__
 
@@ -39,12 +38,26 @@ namespace ast
     {
       return token.literal;
     }
+  };
 
+  struct CommandStatement : public Statement
+  {
+    CommandStatement(Token token) : Statement(token) {}
+
+    virtual operator string() override
+    {
+      return token.literal;
+    }
+
+    string tokenLiteral() override
+    {
+      return token.literal;
+    }
   };
 
   struct Program : public Node
   {
-    vector<Statement*> statements;
+    vector<Statement *> statements;
 
     Program() : Node(Token()) {}
 
@@ -62,7 +75,6 @@ namespace ast
       }
       return ss.str();
     }
-
   };
 
   struct Expression : public Node
@@ -128,7 +140,7 @@ namespace ast
 
     string tokenLiteral() override
     {
-      return token.literal + "_" + token_vartype.literal + (count ? ("(" + to_string(count->value) + ")") : "");
+      return token.literal;
     }
 
     operator string() override
@@ -148,11 +160,13 @@ namespace ast
     // TODO: ColumnListExpression *comlumn_list;
     QueryExpression(Token token) : Expression(token) {}
 
-    string tokenLiteral() override {
+    string tokenLiteral() override
+    {
       return "QUERY";
     }
 
-    operator string() override {
+    operator string() override
+    {
       return token.literal;
     }
   };
