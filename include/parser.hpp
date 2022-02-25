@@ -1,3 +1,11 @@
+/*
+ * AUTHOR: VINCENT PHAM
+ * CLASS: CS457 DATABASE MANAGEMENT SYSTEMS
+ * FILE DESC: Simple parser using tokens (tokens.cpp) generated from the
+ * lexer. It creates an abstract syntax tree based on the order of tokens.
+ * Expressions are also created during this stage.
+ */
+
 #ifndef __PARSER_HPP__
 #define __PARSER_HPP__
 

@@ -253,13 +253,3 @@ TEST(ParserTest, ParseCommands)
   EXPECT_EQ(std::string(*statement), "EXIT");
   EXPECT_EQ(std::string(statement->token.type), "EXIT");
 }
-
-TEST(ProtoGenerator, Instantiation)
-{
-  auto tbl = TableObject("tbl_1");
-  tbl.addField("a1", "int32", 1);
-  tbl.addField("a2", "string", 30);
-  auto db = DatabaseObject("db_1");
-  db.insertTable(tbl);
-  ProtoGenerator pg(db);
-}

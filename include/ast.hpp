@@ -1,3 +1,12 @@
+/*
+ * AUTHOR: VINCENT PHAM
+ * CLASS: CS457 DATABASE MANAGEMENT SYSTEMS
+ * FILE DESC: Provides an Abstract Syntax Tree structure.
+ * Due to static typing, nodes are identified by their tokenLiteral()
+ * function which should be unique for every node.
+ */
+
+
 #ifndef __AST_HPP__
 #define __AST_HPP__
 

@@ -1,3 +1,10 @@
+/*
+ * AUTHOR: VINCENT PHAM
+ * CLASS: CS457 DATABASE MANAGEMENT SYSTEMS
+ * FILE DESC: The main function for generating, reading, and saving into
+ * .proto files. The files generated from here will be used to compile
+ * shared object libraries with dynamic linkage.
+ */
 #ifndef __PROTO_GENERATOR__
 #define __PROTO_GENERATOR__
 
@@ -119,6 +126,9 @@ public:
 
   static bool createDB(std::string db_name)
   {
+    if(!fs::exists(DATA_PATH)) {
+      fs::create_directories(DATA_PATH);
+    }
     if (fs::exists(DATA_PATH / db_name))
     {
       return false;
