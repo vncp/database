@@ -87,7 +87,7 @@ TEST(ParserTest, CreateDatabaseStatements)
   auto testCreateDatabaseStatement = [](ast::Statement *statement, std::string name)
   {
     ast::CreateDatabaseStatement *casted_statement = dynamic_cast<ast::CreateDatabaseStatement *>(statement);
-    EXPECT_EQ(casted_statement->tokenLiteral(), "CREATE");
+    EXPECT_EQ(casted_statement->tokenLiteral(), "CREATEDB");
     EXPECT_EQ(casted_statement->name->value, name);
     EXPECT_EQ(casted_statement->name->tokenLiteral(), name);
   };
@@ -109,7 +109,7 @@ TEST(ParserTest, CreateTableStatements)
   auto testCreateTableStatement = [](ast::Statement *statement, std::string name)
   {
     ast::CreateTableStatement *casted_statement = dynamic_cast<ast::CreateTableStatement *>(statement);
-    EXPECT_EQ(casted_statement->tokenLiteral(), "CREATE");
+    EXPECT_EQ(casted_statement->tokenLiteral(), "CREATETBL");
     EXPECT_EQ(casted_statement->name->value, name);
     EXPECT_EQ(casted_statement->name->tokenLiteral(), name);
   };
@@ -252,7 +252,6 @@ TEST(ParserTest, ParseCommands)
   ast::Statement *statement = program->statements[0];
   EXPECT_EQ(std::string(*statement), "EXIT");
   EXPECT_EQ(std::string(statement->token.type), "EXIT");
-  eval<ast::Program>(program);
 }
 
 TEST(ProtoGenerator, Instantiation)

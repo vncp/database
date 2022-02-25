@@ -11,7 +11,6 @@ using namespace std;
 namespace ast
 {
 
-  struct NodeTag;
   struct Node
   {
     Token token;
@@ -21,10 +20,8 @@ namespace ast
       return token.literal;
     };
     virtual operator string() = 0;
-    using tag = NodeTag;
   };
 
-  struct StatementTag;
   struct Statement : public Node
   {
     Statement(Token token) : Node(token) {}
@@ -33,23 +30,18 @@ namespace ast
     {
       return token.literal;
     }
-    using tag = StatementTag;
+
   };
 
-  struct ProgramTag;
   struct Program : public Node
   {
-    vector<Statement *> statements;
+    vector<Statement*> statements;
 
     Program() : Node(Token()) {}
 
     string tokenLiteral() override
     {
-      if (statements.size() > 0)
-      {
-        return statements[0]->tokenLiteral();
-      }
-      return "";
+      return "PROGRAM";
     }
 
     operator string() override
@@ -61,25 +53,21 @@ namespace ast
       }
       return ss.str();
     }
-    using tag = ProgramTag;
+
   };
 
-  struct ExpressionTag;
   struct Expression : public Node
   {
     Expression(Token token) : Node(token) {}
   };
 
-  struct ExpressionStatementTag;
   struct ExpressionStatement : Statement
   {
     Expression *expression;
 
     ExpressionStatement(Token token) : Statement(token) {}
-    using tag = ExpressionTag;
   };
 
-  struct IdentifierTag;
   struct Identifier : public Expression
   {
     string value;
@@ -90,10 +78,8 @@ namespace ast
     {
       return token.literal;
     }
-    using tag = IdentifierTag;
   };
 
-  struct IntegerLiteralTag;
   struct IntegerLiteral : public Expression
   {
     int value;
@@ -104,10 +90,8 @@ namespace ast
     {
       return token.literal;
     }
-    using tag = IntegerLiteralTag;
   };
 
-  struct PrefixExpressionTag;
   struct PrefixExpression : public Expression
   {
     string opsymbol;
@@ -122,10 +106,8 @@ namespace ast
       ss << "(" << opsymbol << std::string(*right) << ")";
       return ss.str();
     }
-    using tag = PrefixExpressionTag;
   };
 
-  struct ColumnDefinitionExpressionTag;
   struct ColumnDefinitionExpression : public Expression
   {
     Token token_vartype;
@@ -143,17 +125,15 @@ namespace ast
     operator string() override
     {
       ostringstream ss;
-      ss << token.literal << token_vartype.literal;
+      ss << token.literal << " " << token_vartype.literal;
       if (count != nullptr)
       {
         ss << "(" << std::string(*count) << ")";
       }
       return ss.str();
     }
-    using tag = ColumnDefinitionExpressionTag;
   };
 
-  struct CreateDatabaseStatementTag;
   struct CreateDatabaseStatement : public Statement
   {
     Identifier *name;
@@ -164,20 +144,18 @@ namespace ast
 
     string tokenLiteral() override
     {
-      return token.literal;
+      return "CREATEDB";
     }
 
     operator string() override
     {
       ostringstream ss;
-      ss << tokenLiteral() << " DATABASE ";
+      ss << "CREATE DATABASE ";
       ss << std::string(*name) << ";";
       return ss.str();
     }
-    using tag = CreateDatabaseStatementTag;
   };
 
-  struct CreateTableStatementTag;
   struct CreateTableStatement : public Statement
   {
     Identifier *name;
@@ -187,22 +165,67 @@ namespace ast
 
     string tokenLiteral() override
     {
-      return token.literal;
+      return "CREATETBL";
     }
 
     operator string() override
     {
       ostringstream ss;
-      ss << tokenLiteral() << " TABLE ";
-      ss << std::string(*name) << "[";
-      if (column_list != nullptr)
+      ss << "CREATE TABLE ";
+      ss << std::string(*name) << "(";
+      ColumnDefinitionExpression *curr;
+      for (curr = column_list; column_list->right != nullptr; column_list = column_list->right)
       {
-        ss << std::string(*column_list);
+        ss << std::string(*column_list) << ", ";
       }
-      ss << ";";
+      ss << std::string(*column_list);
+      ss << ");";
       return ss.str();
     }
-    using tag = CreateTableStatementTag;
+  };
+
+  struct DropDatabaseStatement : public Statement
+  {
+    Identifier *name;
+
+    DropDatabaseStatement(Token token) : Statement(token)
+    {
+    }
+
+    string tokenLiteral() override
+    {
+      return "DROPDB";
+    }
+
+    operator string() override
+    {
+      ostringstream ss;
+      ss << "DROP DATABASE ";
+      ss << std::string(*name) << ";";
+      return ss.str();
+    }
+  };
+
+  struct DropTableStatement : public Statement
+  {
+    Identifier *name;
+
+    DropTableStatement(Token token) : Statement(token)
+    {
+    }
+
+    string tokenLiteral() override
+    {
+      return "DROPTBL";
+    }
+
+    operator string() override
+    {
+      ostringstream ss;
+      ss << "DROP TABLE ";
+      ss << std::string(*name) << ";";
+      return ss.str();
+    }
   };
 };
 #endif /* __AST_HPP__ */

@@ -182,6 +182,12 @@ public:
       {
         return parseCreateTableStatement();
       }
+    } else if (currToken.type == token_type::DROP) {
+      if (peekToken.type == token_type::DATABASE) {
+        return parseDropDatabaseStatement();
+      } else if (peekToken.type == token_type::TABLE) {
+        return parseDropTableStatement();
+      }
     }
     else
     {
@@ -205,6 +211,28 @@ public:
   ast::CreateDatabaseStatement *parseCreateDatabaseStatement()
   {
     ast::CreateDatabaseStatement *statement = new ast::CreateDatabaseStatement{currToken};
+    nextToken();
+    if (peekToken.type == token_type::IDENTIFIER)
+    {
+      nextToken();
+    }
+    else
+    {
+      throw expected_token_error(peekToken.literal, "IDENTIFIER");
+    }
+    statement->name = new ast::Identifier{currToken, currToken.literal};
+    // Ignore everything else
+    nextToken();
+    if (currToken.type != token_type::SEMICOLON)
+    {
+      // Unexpected token error
+      throw expected_token_error(currToken.literal, ";");
+    }
+    return statement;
+  }
+
+  ast::DropDatabaseStatement *parseDropDatabaseStatement(){
+    ast::DropDatabaseStatement *statement = new ast::DropDatabaseStatement{currToken};
     nextToken();
     if (peekToken.type == token_type::IDENTIFIER)
     {
@@ -254,6 +282,28 @@ public:
     nextToken();
     if (currToken.type != token_type::SEMICOLON)
     {
+      throw expected_token_error(currToken.literal, ";");
+    }
+    return statement;
+  }
+
+  ast::DropTableStatement *parseDropTableStatement(){
+    ast::DropTableStatement *statement = new ast::DropTableStatement{currToken};
+    nextToken();
+    if (peekToken.type == token_type::IDENTIFIER)
+    {
+      nextToken();
+    }
+    else
+    {
+      throw expected_token_error(peekToken.literal, "IDENTIFIER");
+    }
+    statement->name = new ast::Identifier{currToken, currToken.literal};
+    // Ignore everything else
+    nextToken();
+    if (currToken.type != token_type::SEMICOLON)
+    {
+      // Unexpected token error
       throw expected_token_error(currToken.literal, ";");
     }
     return statement;

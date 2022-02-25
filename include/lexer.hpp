@@ -116,8 +116,7 @@ public:
       if (isLetter(ch))
       {
         token.literal = readIdentifier();
-        if (token_type::lookUpCommand)
-          token.type = token_type::lookUpIdentifier(token.literal);
+        token.type = token_type::lookUpIdentifier(token.literal);
         return token;
       }
       else if (isDigit(ch))
