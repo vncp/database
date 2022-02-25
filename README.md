@@ -3,7 +3,7 @@ Simple SQL Implementation
 
 ## Building
 ```
-cmake -S . -B build && cmake --build build && ./build/sql_test && ./build/main << ./PA1_test.sql
+cmake -S . -B build && cmake --build build && ./build/sql_test && ./build/main > ./PA1_test.sql
 ```
 An install script of for protobuffers is included, but not yet needed for testing.
 
