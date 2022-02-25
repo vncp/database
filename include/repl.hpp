@@ -26,7 +26,7 @@ void repl()
     try
     {
       ast::Program *program = parser.parseSql();
-      cout << std::string(*program) << endl;
+      cout << eval(program)->inspect() << endl;
     }
     catch (const expected_token_error &e)
     {

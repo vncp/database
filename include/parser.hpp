@@ -21,6 +21,23 @@ enum class precedence
   CALL
 };
 
+class not_supported_error : public runtime_error
+{
+  std::string token;
+
+public:
+  not_supported_error(const std::string &what_arg) : runtime_error(what_arg),
+                                                                                   token(what_arg) {}
+
+  const char *what() const noexcept override
+  {
+    string err = ("Feature: " + token + " is currently unsupported.");
+    char *err_cstr = new char[err.length() + 1];
+    strcpy(err_cstr, err.c_str());
+    return err_cstr;
+  }
+};
+
 class expected_token_error : public runtime_error
 {
   std::string token;
@@ -182,12 +199,32 @@ public:
       {
         return parseCreateTableStatement();
       }
-    } else if (currToken.type == token_type::DROP) {
-      if (peekToken.type == token_type::DATABASE) {
+    }
+    else if (currToken.type == token_type::DROP)
+    {
+      if (peekToken.type == token_type::DATABASE)
+      {
         return parseDropDatabaseStatement();
-      } else if (peekToken.type == token_type::TABLE) {
+      }
+      else if (peekToken.type == token_type::TABLE)
+      {
         return parseDropTableStatement();
       }
+    }
+    else if (currToken.type == token_type::USE)
+    {
+      return parseUseDatabaseStatement();
+    }
+    else if (currToken.type == token_type::ALTER)
+    {
+      if (peekToken.type == token_type::TABLE)
+      {
+        return parseAlterTableStatement();
+      }
+    }
+    else if (currToken.type == token_type::SELECT)
+    {
+      return parseSelectTableStatement();
     }
     else
     {
@@ -206,6 +243,56 @@ public:
     {
       throw unknown_command_error(currToken.literal);
     }
+  }
+
+  ast::SelectTableStatement *parseSelectTableStatement() {
+    ast::SelectTableStatement *statement = new ast::SelectTableStatement{currToken};
+    nextToken();
+    statement->query = parseQueryExpression();
+    if (currToken.type != token_type::FROM) {
+      throw expected_token_error(currToken.literal, "FROM");
+    }
+    nextToken();
+    if (currToken.type != token_type::IDENTIFIER) {
+      throw expected_token_error(currToken.type, "IDENTIFIER");
+    }
+    statement->name = new ast::Identifier{currToken, currToken.literal};
+    nextToken();
+    if (currToken.type == token_type::COMMA) {
+      throw expected_token_error(currToken.type, ",");
+    }
+    return statement;
+  }
+
+  ast::QueryExpression *parseQueryExpression() {
+    if (currToken.type == token_type::ASTERISK) {
+      auto expr = new ast::QueryExpression{currToken};
+      nextToken();
+      return expr;
+    } else {
+      throw not_supported_error("querying by column-list expressions");
+    }
+  }
+
+  ast::UseDatabaseStatement *parseUseDatabaseStatement()
+  {
+    ast::UseDatabaseStatement *statement = new ast::UseDatabaseStatement{currToken};
+    if (peekToken.type == token_type::IDENTIFIER)
+    {
+      nextToken();
+      statement->name = new ast::Identifier{currToken, currToken.literal};
+    }
+    else
+    {
+      throw expected_token_error(peekToken.literal, "IDENTIFIER");
+    }
+    nextToken();
+    if (currToken.type != token_type::SEMICOLON)
+    {
+      // Unexpected token error
+      throw expected_token_error(currToken.literal, ";");
+    }
+    return statement;
   }
 
   ast::CreateDatabaseStatement *parseCreateDatabaseStatement()
@@ -231,7 +318,8 @@ public:
     return statement;
   }
 
-  ast::DropDatabaseStatement *parseDropDatabaseStatement(){
+  ast::DropDatabaseStatement *parseDropDatabaseStatement()
+  {
     ast::DropDatabaseStatement *statement = new ast::DropDatabaseStatement{currToken};
     nextToken();
     if (peekToken.type == token_type::IDENTIFIER)
@@ -287,7 +375,54 @@ public:
     return statement;
   }
 
-  ast::DropTableStatement *parseDropTableStatement(){
+  ast::AlterTableStatement *parseAlterTableStatement()
+  {
+    ast::AlterTableStatement *statement = new ast::AlterTableStatement{currToken};
+    nextToken();
+    if (peekToken.type == token_type::IDENTIFIER)
+    {
+      nextToken();
+    }
+    else
+    {
+      // Not identifier error
+      throw expected_token_error(peekToken.literal, "IDENTIFIER");
+    }
+    statement->name = new ast::Identifier{currToken, currToken.literal};
+
+    nextToken();
+    if (currToken.type == token_type::ADD) {
+      expected_token_error(currToken.literal, "ADD");
+    }
+    nextToken();
+    // EXPECT PARENTHESES
+    if (currToken.type == token_type::LPAREN)
+    {
+      if (currToken.type != token_type::LPAREN)
+      {
+        throw expected_token_error(currToken.literal, "(");
+      }
+      nextToken();
+      statement->column_list = parseColumnDefinition();
+      if (currToken.type != token_type::RPAREN)
+      {
+        throw expected_token_error(currToken.literal, ")");
+      }
+      nextToken();
+    }
+    else // NO PAREN, so non-recursive parseColumnDefinition
+    {
+      statement->column_list = parseColumnDefinition(true);
+    }
+    if (currToken.type != token_type::SEMICOLON)
+    {
+      throw expected_token_error(currToken.literal, ";");
+    }
+    return statement;
+  }
+
+  ast::DropTableStatement *parseDropTableStatement()
+  {
     ast::DropTableStatement *statement = new ast::DropTableStatement{currToken};
     nextToken();
     if (peekToken.type == token_type::IDENTIFIER)
@@ -309,7 +444,7 @@ public:
     return statement;
   }
 
-  ast::ColumnDefinitionExpression *parseColumnDefinition()
+  ast::ColumnDefinitionExpression *parseColumnDefinition(bool single = false)
   {
     auto expr = new ast::ColumnDefinitionExpression{currToken, peekToken};
     nextToken();
@@ -339,7 +474,7 @@ public:
       expr->count = static_cast<ast::IntegerLiteral *>(nullptr);
     }
     nextToken();
-    if (currToken.type == token_type::COMMA)
+    if (!single && currToken.type == token_type::COMMA)
     {
       nextToken();
       expr->right = parseColumnDefinition();

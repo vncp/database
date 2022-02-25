@@ -134,6 +134,42 @@ namespace ast
     }
   };
 
+  struct QueryExpression : public Expression
+  {
+    // TODO: ColumnListExpression *comlumn_list;
+    QueryExpression(Token token) : Expression(token) {}
+
+    string tokenLiteral() override {
+      return "QUERY";
+    }
+
+    operator string() override {
+      return token.literal;
+    }
+  };
+
+  struct UseDatabaseStatement : public Statement
+  {
+    Identifier *name;
+
+    UseDatabaseStatement(Token token) : Statement(token)
+    {
+    }
+
+    string tokenLiteral() override
+    {
+      return "USE";
+    }
+
+    operator string() override
+    {
+      ostringstream ss;
+      ss << "USE DATABASE ";
+      ss << std::string(*name) << ";";
+      return ss.str();
+    }
+  };
+
   struct CreateDatabaseStatement : public Statement
   {
     Identifier *name;
@@ -227,5 +263,60 @@ namespace ast
       return ss.str();
     }
   };
+
+  struct AlterTableStatement : public Statement
+  {
+    Identifier *name;
+    ColumnDefinitionExpression *column_list;
+
+    AlterTableStatement(Token token) : Statement(token)
+    {
+    }
+
+    string tokenLiteral() override
+    {
+      return "ALTER";
+    }
+
+    operator string() override
+    {
+      ostringstream ss;
+      ss << "ALTER TABLE ";
+      ss << std::string(*name) << "(";
+      ColumnDefinitionExpression *curr;
+      for (curr = column_list; column_list->right != nullptr; column_list = column_list->right)
+      {
+        ss << std::string(*column_list) << ", ";
+      }
+      ss << std::string(*column_list);
+      ss << ");";
+      return ss.str();
+    }
+  };
+
+  struct SelectTableStatement : public Statement
+  {
+    Identifier *name;
+    QueryExpression *query;
+
+    SelectTableStatement(Token token) : Statement(token)
+    {
+    }
+
+    string tokenLiteral() override
+    {
+      return "SELECT";
+    }
+
+    operator string() override
+    {
+      ostringstream ss;
+      ss << "SELECT ";
+      ss << std::string(*query) << " FROM TABLE ";
+      ss << std::string(*name) << ";";
+      return ss.str();
+    }
+  };
+
 };
 #endif /* __AST_HPP__ */
