@@ -19,50 +19,20 @@
 
 namespace fs = std::experimental::filesystem;
 // Fieldname , <Type, Count, fieldNum, sqlType>
-using fieldmapType = std::unordered_map<std::string, std::tuple<std::string, int, int, std::string>>;
+using fieldmapType = std::unordered_map<std::string, std::tuple<std::string, int>>;
 
 namespace paths
 {
-  const std::string PROTO_VERSION = "syntax = \"proto3\";";
-  auto PROTOC_PATH = fs::current_path() / "etc" / "protobuf" / "src" / "protoc";
-  auto PROJECT_ROOT = fs::current_path();
   auto DATA_PATH = fs::current_path() / "data";
 };
 using namespace paths;
 
-std::unordered_map<std::string, std::string> typeMap = {
-    {"int", "int64"},
-    {"char", "string"},
-    {"varchar", "string"},
-    {"float", "float"}};
 
+// Class responsible for generating and reading schema files
+// NOTE: Originally worked with protobuf files
 class ProtoGenerator
 {
   DatabaseObject *db_obj;
-
-  void verifyProtoc()
-  {
-    if (!fs::exists(PROTOC_PATH))
-    {
-      std::cout << "This project depends on Google Protocol Buffers to store data as bytes.\n"
-                << "The application will now download, build, and install the protobuf\n"
-                << "compiler and proto-cpp in the local application directory (~20 mins).\n"
-                << "CTRL-C to exit or Enter to accept.\n";
-      int a;
-      cin >> a;
-      system((PROJECT_ROOT / "install_protoc.sh").c_str());
-    }
-    else
-    {
-      std::cout << "Found protoc binary at " << PROTOC_PATH << endl;
-    }
-    if (!fs::exists(PROTOC_PATH))
-    {
-      cerr << "Could not install protoc." << endl;
-    }
-    // Make sure out directory for protoc exists
-    fs::create_directories(PROJECT_ROOT / "include" / "generated");
-  }
 
   // Create a new Table
   void protocGenerate(DatabaseObject *database, TableObject table)
@@ -71,11 +41,8 @@ class ProtoGenerator
     {
       fs::create_directories(DATA_PATH / database->name());
     }
-    std::ofstream protoFile(DATA_PATH / database->name() / (table.name() + ".proto"));
-    protoFile << PROTO_VERSION << "\n";
-    protoFile << "package " << database->name() << ";\n\n";
+    std::ofstream protoFile(DATA_PATH / database->name() / (table.name() + ".schema"));
     protoFile << generateMetadataComment(table.maxFieldNum, table.name(), database->name());
-    protoFile << "message " << table.name() << " {\n";
     for (auto field : table.fields)
     {
       protoFile << "\t // " << get<1>(field.second) << " " << get<3>(field.second) << "\n";
@@ -86,6 +53,7 @@ class ProtoGenerator
     protoFile.close();
   }
 
+  // Generate Metadata in top of schema file to test that they're in the correct database/table
   static std::string generateMetadataComment(const int maxNumField,
                                              std::string_view tableName,
                                              std::string_view databaseName)
@@ -94,7 +62,6 @@ class ProtoGenerator
     ss << "/*    METADATA-START\n";
     ss << "databaseName " << databaseName << std::endl;
     ss << "tableName " << tableName << std::endl;
-    ss << "maxFieldNum " << maxNumField << std::endl;
     ss << "METADATA-END    */\n";
     return ss.str();
   }
@@ -103,7 +70,6 @@ public:
   ProtoGenerator(DatabaseObject *db_obj) : db_obj(db_obj)
   {
     // ProtocolBuffer not needed until data stored
-    // verifyProtoc();
     auto dbNamePath = DATA_PATH / db_obj->name();
     if (!fs::exists(dbNamePath))
     {
@@ -115,16 +81,21 @@ public:
     }
   }
 
+  // Check that a database exists by checking existance of its directory
   static bool DBExists(std::string name)
   {
     return fs::exists(DATA_PATH / name);
   }
 
+  // Create a database by creating a directory in the the DATA_PATH
+  // Returns false if the directory already exists
   static bool createDB(std::string db_name)
   {
+    // Make sure the DATA_PATH is created
     if(!fs::exists(DATA_PATH)) {
       fs::create_directories(DATA_PATH);
     }
+
     if (fs::exists(DATA_PATH / db_name))
     {
       return false;
@@ -132,19 +103,22 @@ public:
     return fs::create_directory(DATA_PATH / db_name);
   }
 
+  // Creates a table in the provided database based on fieldmapType (unordered map)
+  // Returns a database object to update state
   static DatabaseObject createTBL(std::string db_name, std::string tbl_name, fieldmapType fields)
   {
     auto db_path = DATA_PATH / db_name;
     // Table already exists
-    if (fs::exists(db_path / (tbl_name + ".proto")))
+    if (fs::exists(db_path / (tbl_name + ".schema")))
     {
       return DatabaseObject("nil");
     }
     TableObject tbl(tbl_name);
     for (const auto &field : fields)
     {
-      auto second = field.second;
-      tbl.addField(field.first, typeMap[get<0>(second)], get<2>(second), get<1>(second), get<3>(second));
+      auto fieldType = field.second;
+      // TODO: Update AddField
+      tbl.addField(field.first, get<0>(fieldType), get<1>(fieldType));
     }
     DatabaseObject curr_db(db_name);
     curr_db.insertTable(tbl);
@@ -152,6 +126,7 @@ public:
     return curr_db;
   }
 
+  // [STATIC] Prints table information in form of a string
   static std::string printTBL(std::string db_name, std::string tbl_name)
   {
     DatabaseObject db = loadDB(db_name);
@@ -164,8 +139,9 @@ public:
         ss << "|";
         for (auto [name, field] : fields)
         {
-          ss << " " << name << " " << get<3>(field);
-          ss << (get<1>(field) > 1 ? ("(" + to_string(get<1>(field)) + ") |") : " |");
+          ss << " " << name << " " << get<0>(field);
+          // Print count information only if there is more than 1 of type
+          ss << (get<1>(field) > 1 ? ("(" + std::to_string(get<1>(field)) + ") |") : " |");
         }
         return ss.str();
       }
@@ -173,14 +149,15 @@ public:
     return "!Failed to query tbl_1 because it does not exist.";
   }
 
-  static DatabaseObject addFieldTBL(std::string db_name, std::string tbl_name, std::string fieldName, std::string fieldCount, std::string fieldType)
+  // Add a field to an existing table
+  static DatabaseObject addFieldTBL(std::string db_name, std::string tbl_name, std::string fieldName, std::string fieldType, std::string fieldCount = 1)
   {
     DatabaseObject db = loadDB(db_name);
     for (int i = 0; i < db.tables.size(); i++)
     {
       if (db.tables[i].name() == tbl_name)
       {
-        db.tables[i].addField(fieldName, typeMap[fieldType], atoi(fieldCount.c_str()), fieldType);
+        db.tables[i].addField(fieldName, fieldType, atoi(fieldCount.c_str()));
         // Memory instance updated, now apply to file. Current will be updated after return
         ProtoGenerator pg(&db);
         return db;
@@ -189,16 +166,21 @@ public:
     return DatabaseObject("nil");
   }
 
+  // Delete a database by recursively deleting all tables then deleting the directory
   static bool deleteDB(std::string db_name)
   {
-    return !fs::remove_all(DATA_PATH / db_name);
+    fs::remove_all(DATA_PATH / db_name);
+    return !fs::remove(DATA_PATH / db_name);
   }
 
+  // Delete a single table from a database by removing its .scheme file
+  // TODO: Delete all its data as well (.data file)
   static bool deleteTBL(std::string db_name, std::string tbl_name)
   {
-    return !fs::remove(DATA_PATH / db_name / (tbl_name + ".proto"));
+    return !fs::remove(DATA_PATH / db_name / (tbl_name + ".schema"));
   }
 
+  // Load the a database and all its schemas and data into memory
   static DatabaseObject loadDB(std::string db_name)
   {
     DatabaseObject res(db_name);

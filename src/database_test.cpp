@@ -8,6 +8,7 @@
 #include <evaluator.hpp>
 #include <string>
 #include <tuple>
+#include <experimental/filesystem>
 
 TEST(LexerTest, ReadNextTokenSingleChar)
 {
@@ -252,4 +253,9 @@ TEST(ParserTest, ParseCommands)
   ast::Statement *statement = program->statements[0];
   EXPECT_EQ(std::string(*statement), "EXIT");
   EXPECT_EQ(std::string(statement->token.type), "EXIT");
+}
+
+TEST(SchemaTest, GenerateSchemaFile)
+{
+  
 }

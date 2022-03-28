@@ -39,8 +39,11 @@ fieldmapType evalFields(ast::ColumnDefinitionExpression *node)
 
 // Typedef for std::function parameters
 using evalFnType = std::function<object::Object *(ast::Node *, DatabaseObject *)>;
-// Map token identifiers with equivalent runtimes
+
+// Map token identifiers with equivalent functional behavior described in proto_generator
 std::unordered_map<std::string, evalFnType> evalStatementFns = {
+
+    // Creates Table if a database is selected
     {"CREATETBL", evalFnType([](ast::Node *node, DatabaseObject *current_database)
                              {
       auto node_ = dynamic_cast<ast::CreateTableStatement*>(node);
@@ -58,6 +61,8 @@ std::unordered_map<std::string, evalFnType> evalStatementFns = {
       }
       cout << "!Failed to create " << std::string(*node_->name) << " because it already exists.\n";
       return new object::Integer(1); })},
+
+    // Creates a database if it doesn't exist (directory with its new name in data directory)
     {"CREATEDB", evalFnType([](ast::Node *node, DatabaseObject *current_database)
                             {
       auto node_ = dynamic_cast<ast::CreateDatabaseStatement*>(node);
@@ -67,6 +72,8 @@ std::unordered_map<std::string, evalFnType> evalStatementFns = {
       }
       cout << "!Failed to create " << std::string(*node_->name) << " as it already exists.\n";
       return new object::Integer(1); })},
+
+    // Drops table in the currently selected database. Returns an error if the database was not found.
     {"DROPTBL", evalFnType([](ast::Node *node, DatabaseObject *current_database)
                            {
       auto node_ = dynamic_cast<ast::DropTableStatement*>(node);
@@ -82,6 +89,8 @@ std::unordered_map<std::string, evalFnType> evalStatementFns = {
       }
       cout << "Table " << std::string(*node_->name) << " deleted.\n";
       return new object::Integer(0); })},
+
+    // Drops the database specified.
     {"DROPDB", evalFnType([](ast::Node *node, DatabaseObject *current_database)
                           {
       auto node_ = dynamic_cast<ast::DropDatabaseStatement*>(node);
@@ -92,6 +101,8 @@ std::unordered_map<std::string, evalFnType> evalStatementFns = {
       }
       cout << "Database " << std::string(*node_->name) << " deleted.\n";
       return new object::Integer(0); })},
+
+    // Sets the currently selected database returns an error if it doesn't exist
     {"USE", evalFnType([](ast::Node *node, DatabaseObject *current_database)
                        {
       auto node_ = dynamic_cast<ast::UseDatabaseStatement*>(node);
@@ -103,6 +114,8 @@ std::unordered_map<std::string, evalFnType> evalStatementFns = {
       } 
       cout << "!Failed to use " << std::string(*node_->name) << " because it doesn't exist.\n";
       return new object::Integer(1); })},
+
+    // Alters a table and modifies the column in its definition file
     {"ALTER", evalFnType([](ast::Node *node, DatabaseObject *current_database)
                          {
       auto node_ = dynamic_cast<ast::AlterTableStatement*>(node);
@@ -126,6 +139,8 @@ std::unordered_map<std::string, evalFnType> evalStatementFns = {
       }
       cout << "!Could not modify or find table.\n";
       return new object::Integer(1); })},
+
+    // Selects a database giving the information needed.
     {"SELECT", evalFnType([](ast::Node *node, DatabaseObject *current_database)
                           {
       auto node_ = dynamic_cast<ast::SelectTableStatement*>(node);
@@ -134,6 +149,8 @@ std::unordered_map<std::string, evalFnType> evalStatementFns = {
       }
       cout << ProtoGenerator::printTBL(current_database->name(), std::string(*node_->name)) << endl;;
       return new object::Integer(7); })},
+
+    // Interpreter specific commands such as exit is rerouted here
     {"PROGRAM", evalFnType([](ast::Node *node, DatabaseObject *current_database)
                            {
       auto node_ = dynamic_cast<ast::Program*>(node);
@@ -143,6 +160,8 @@ std::unordered_map<std::string, evalFnType> evalStatementFns = {
         ret = eval(stmt, current_database);
       }
       return ret; })},
+
+    // Exits the interpreter
     {"EXIT", evalFnType([](ast::Node *node, DatabaseObject *current_database)
                         {
       auto node_ = dynamic_cast<ast::Program*>(node);
@@ -151,6 +170,7 @@ std::unordered_map<std::string, evalFnType> evalStatementFns = {
       return new object::Integer(0); })},
 };
 
+// Initial expression evaluator for the program
 object::Object *eval(ast::Node *node, DatabaseObject *current_database)
 {
   if (evalStatementFns.find(node->tokenLiteral()) != evalStatementFns.end())
