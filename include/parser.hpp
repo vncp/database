@@ -19,6 +19,9 @@
 
 using namespace std;
 
+/**
+ * @brief Precedence of simple arithmetic operators for prefix-parsing
+ */
 enum class precedence
 {
   LOWEST,
@@ -29,14 +32,27 @@ enum class precedence
   CALL
 };
 
+/**
+ * @brief Error thrown when an unfinished statement or expression was detected
+ */
 class not_supported_error : public runtime_error
 {
   std::string token;
 
 public:
+  /**
+   * @brief Construct a new not supported error object
+   * 
+   * @param what_arg The token triggering the error
+   */
   not_supported_error(const std::string &what_arg) : runtime_error(what_arg),
                                                                                    token(what_arg) {}
 
+  /**
+   * @brief Override of runtime_error.what()
+   * 
+   * @return const char* Returns error message
+   */
   const char *what() const noexcept override
   {
     string err = ("Feature: " + token + " is currently unsupported.");
@@ -46,16 +62,30 @@ public:
   }
 };
 
+/**
+ * @brief Error thrown when an unexpected token was found when following the parse tree
+ */
 class expected_token_error : public runtime_error
 {
   std::string token;
   std::string expected;
 
 public:
+  /**
+   * @brief Construct a new not expected error objectj
+   * 
+   * @param what_arg The token that was provided
+   * @param expected The token or token type that was expected
+   */
   expected_token_error(const std::string &what_arg, const std::string &expected) : runtime_error(what_arg),
                                                                                    token(what_arg),
                                                                                    expected(expected) {}
 
+  /**
+   * @brief Override of runtime_error.what()
+   * 
+   * @return const char* Returns error message
+   */
   const char *what() const noexcept override
   {
     string err = ("Expected Token: '" + expected + "' but got: '" + token + "'.");
@@ -191,6 +221,11 @@ public:
     return program;
   }
 
+  /**
+   * @brief Delegates to appropriate parse function depending on the first couple tokens
+   * 
+   * @return ast::Statement* The statement node processed
+   */
   ast::Statement *parseStatement()
   {
     if (currToken.type == token_type::COMMAND)
@@ -200,6 +235,14 @@ public:
     else if (currToken.type == token_type::INSERT)
     {
       return parseInsertTableStatement();
+    }
+    else if (currToken.type == token_type::UPDATE)
+    {
+      return parseUpdateTableStatement();
+    }
+    else if (currToken.type == token_type::DELETE)
+    {
+      //return parseDeleteTableStatement();
     }
     else if (currToken.type == token_type::CREATE)
     {
@@ -382,6 +425,43 @@ public:
     nextToken();
     if (currToken.type != token_type::SEMICOLON)
     {
+      throw expected_token_error(currToken.literal, ";");
+    }
+    return statement;
+  }
+
+  ast::UpdateTableStatement *parseUpdateTableStatement() {
+    ast::UpdateTableStatement *statement = new ast::UpdateTableStatement{currToken};
+    nextToken();
+    if (currToken.type == token_type::IDENTIFIER)
+    {
+      statement->name = new ast::Identifier{currToken, currToken.literal};
+      nextToken();
+    }
+    else
+    {
+      throw expected_token_error(currToken.literal, "{IDENTIFIER}");
+    }
+    if (currToken.type == token_type::SET) {
+      nextToken();
+    }
+    else
+    {
+      throw expected_token_error(currToken.literal, "SET");
+    }
+    statement->column_value = parseColumnValueExpression();
+    nextToken();
+    if (currToken.type == token_type::WHERE)
+    {
+      nextToken();
+    }
+    else
+    {
+      throw expected_token_error(currToken.literal, "WHERE");
+    }
+    statement->query = parseWhereExpression();
+    nextToken();
+    if (currToken.type != token_type::SEMICOLON) {
       throw expected_token_error(currToken.literal, ";");
     }
     return statement;
@@ -589,6 +669,80 @@ public:
     {
       expr->right = static_cast<ast::ColumnDefinitionExpression *>(nullptr);
     }
+    return expr;
+  }
+
+  ast::ColumnValueExpression *parseColumnValueExpression()
+  {
+    if (currToken.type != token_type::IDENTIFIER) {
+      throw expected_token_error(currToken.literal, "{IDENTIFIER}");
+    }
+    ast::ColumnValueExpression *expr = new ast::ColumnValueExpression{currToken};
+    nextToken();
+    if (currToken.type == token_type::EQ) {
+      nextToken();
+    }
+    else
+    {
+      throw expected_token_error(currToken.literal, "=");
+    }
+    expr->value = currToken;
+    if (peekToken.type == token_type::COMMA) {
+      nextToken();
+      nextToken();
+      expr->right = parseColumnValueExpression();
+      return expr;
+    } else if (peekToken.type == token_type::SEMICOLON || peekToken.type == token_type::WHERE) {
+      expr->right = static_cast<ast::ColumnValueExpression *>(nullptr);
+      return expr;
+    }
+    else
+    {
+      throw expected_token_error(currToken.literal, "; OR , OR WHERE");
+    }
+  }
+
+  ast::WhereExpression *parseWhereExpression() {
+    if (currToken.type != token_type::IDENTIFIER) {
+      throw expected_token_error(currToken.literal, "{IDENTIFIER}");
+    } 
+    ast::WhereExpression *expr = new ast::WhereExpression{currToken};
+
+    nextToken();
+    if (currToken.type == token_type::EQ ||
+        currToken.type == token_type::NE ||
+        currToken.type == token_type::LT ||
+        currToken.type == token_type::GT)
+    {
+      expr->op = currToken;
+      nextToken();
+    }
+    else {
+      throw expected_token_error(currToken.literal, "< OR > OR = OR !=");
+    }
+
+    if (currToken.type == token_type::QUOTE) {
+      nextToken();
+      if (currToken.type == token_type::IDENTIFIER) {
+        expr->value = currToken;
+        nextToken();
+      }
+      else
+      {
+        throw expected_token_error(currToken.literal, "non-keyword identifier/string");
+      }
+      if (currToken.type != token_type::QUOTE) {
+        throw expected_token_error(currToken.literal, "'");
+      }
+
+    }
+    else if (currToken.type == token_type::FLOAT || currToken.type == token_type::INT) {
+      expr->value = currToken; 
+    }
+    else {
+      throw expected_token_error(currToken.literal, "string, int, or float");
+    }
+
     return expr;
   }
 

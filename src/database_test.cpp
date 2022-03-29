@@ -1,3 +1,10 @@
+/**
+ * @file database_test.cpp
+ * @author Vincent Pham
+ * @brief Unit tests for lexer, parser, evaluator, and Cxx-style objects.
+ * @version 2.1
+ */
+
 #include <gtest/gtest.h>
 #include <tokens.hpp>
 #include <lexer.hpp>
@@ -8,6 +15,7 @@
 #include <evaluator.hpp>
 #include <string>
 #include <tuple>
+#include <variant>
 
 TEST(LexerTest, ReadNextTokenSingleChar)
 {
@@ -217,6 +225,27 @@ TEST(ParserTest, ColumnLiterals)
   EXPECT_EQ(expression->token_vartype.literal, "IDENTIFIER");
 }
 
+TEST(ParserTest, UpdateStatement_WhereExpressions_ColumnValueExpressions){
+  std::string test = "UPDATE product SET price = 14.99 WHERE name = 'Gizmo';";
+  Lexer lexer(test);
+  SQLParser parser(&lexer);
+  ast::Program *program =  parser.parseSql();
+  ASSERT_NE(program, nullptr);
+  ASSERT_EQ(program->statements.size(), 1);
+
+  ast::UpdateTableStatement *statement = dynamic_cast<ast::UpdateTableStatement *>(program->statements[0]);
+  ast::Identifier *table_name = statement->name;
+  ast::ColumnValueExpression *column_values = statement->column_value;
+  ast::WhereExpression *where_expression = statement->query;
+
+  EXPECT_EQ(table_name->tokenLiteral(), "product");
+  EXPECT_EQ(column_values->token.literal, "price");
+  EXPECT_EQ(column_values->value.literal, "14.99");
+  EXPECT_EQ(where_expression->token.literal, "name");
+  EXPECT_EQ(where_expression->op.literal, "=");
+  EXPECT_EQ(where_expression->value.literal, "Gizmo");
+}
+
 TEST(ParserTest, ParserErrors)
 {
   std::string test = "CREATE TABLE TABLE;";
@@ -276,7 +305,39 @@ TEST(ParserTest, ParseCommands)
   EXPECT_EQ(std::string(statement->token.type), "EXIT");
 }
 
-TEST(ColumnFileTest, ParseColumnFile)
+TEST(TableTestMem, AddFieldRecords)
 {
-  
+  auto table = TableObject("test_table");
+  ASSERT_EQ(table.name(), "test_table");
+  ASSERT_EQ(table.addField("a1", "int", 1), true);
+  ASSERT_EQ(table.addField("a2", "char", 6), true);
+  ASSERT_EQ(table.addField("a3", "float", 1), true);
+  auto fields = table.fields.begin();
+  EXPECT_EQ(get<0>(fields->second), "int");
+  fields++;
+  EXPECT_EQ(get<0>(fields->second), "char");
+  fields++;
+  EXPECT_EQ(get<0>(fields->second), "float");
+  EXPECT_EQ(table.fields_size, 3);
+  table.addRecord("isf", 12, "Hello", 3.64);
+  // Now add a another field
+  ASSERT_EQ(table.addField("a4", "varchar", 5), true);
+  // Add corresponding record
+  table.addRecord("isfs", 12, "Hello", 3.64, "Hello");
+  for(auto record: table.records) {
+    if(string *value = std::get_if<std::string>(&record)) {
+      //std::cout << *value << std::endl;
+      EXPECT_EQ(*value, "Hello");
+    } else if (int *value = std::get_if<int>(&record)) {
+      //std::cout << *value << std::endl;
+      EXPECT_EQ(*value, 12);
+    } else if (double *value = std::get_if<double>(&record)) {
+      //std::cout << *value << std::endl;
+      EXPECT_EQ(*value, 3.64);
+    } else if (bool *value = std::get_if<bool>(&record)) {
+      //std::cout << *value << std::endl;
+    } else if (std::get_if<std::nullptr_t>(&record)) {
+      //std::cout << "NULL" << std::endl;
+    }
+  }
 }

@@ -16,9 +16,20 @@
 
 using namespace std;
 
+/**
+ * @brief Namespace encompassing all abstract syntax tree nodes
+ *        which describe literals values and pointers to non-terminal
+ *        expressions.
+ * 
+ */
 namespace ast
 {
 
+/**
+ * @brief Superclass of every single AST node.
+ * 
+ * @param token A Token describing type and an accompanying literal.
+ */
   struct Node
   {
     Token token;
@@ -30,6 +41,11 @@ namespace ast
     virtual operator string() = 0;
   };
 
+/**
+ * @brief Statements which are almost non-terminal and usuall call expressions.
+ *  
+ * @param token A token describing type and an accompanying literal.
+ */
   struct Statement : public Node
   {
     Statement(Token token) : Node(token) {}
@@ -40,6 +56,11 @@ namespace ast
     }
   };
 
+/**
+ * @brief Describes an interpreter command not related to SQL. 
+ * 
+ * @param token A token describing type and an accompanying literal.
+ */
   struct CommandStatement : public Statement
   {
     CommandStatement(Token token) : Statement(token) {}
@@ -55,8 +76,14 @@ namespace ast
     }
   };
 
+  /**
+   * @brief Program object which runs a series of statements.
+   */
   struct Program : public Node
   {
+    /**
+     * A series of statements to be evaluated 
+     */
     vector<Statement *> statements;
 
     Program() : Node(Token()) {}
@@ -77,11 +104,17 @@ namespace ast
     }
   };
 
+  /**
+   * @brief An expression which evaluates into a terminal node. 
+   */
   struct Expression : public Node
   {
     Expression(Token token) : Node(token) {}
   };
 
+  /**
+   * @brief Statement consisting of a single expression 
+   */
   struct ExpressionStatement : Statement
   {
     Expression *expression;
@@ -89,6 +122,9 @@ namespace ast
     ExpressionStatement(Token token) : Statement(token) {}
   };
 
+  /**
+   * @brief Identiifer expression used to evaluate names, strings, and identifiers 
+   */
   struct Identifier : public Expression
   {
     string value;
@@ -101,6 +137,9 @@ namespace ast
     }
   };
 
+  /**
+   * @brief Integer literal expression used to evaluate integer literals for evaluation.
+   */
   struct IntegerLiteral : public Expression
   {
     int value;
@@ -113,6 +152,9 @@ namespace ast
     }
   };
 
+  /**
+   * @brief Prefix expression used to evaluate single expressions against more expression(s).
+   */
   struct PrefixExpression : public Expression
   {
     string opsymbol;
@@ -129,7 +171,9 @@ namespace ast
     }
   };
 
-  // Expression consisting of possibly multiple column literals
+  /**
+   * @brief Expression consisting of possibly multiple column literals
+   */
   struct ColumnLiteralExpression : public Expression {
     // The type that's associated with the literal (read at runtime)
     Token token_vartype;
@@ -176,6 +220,50 @@ namespace ast
         ss << "(" << std::string(*count) << ")";
       }
       return ss.str();
+    }
+  };
+
+  struct ColumnValueExpression : public Expression 
+  {
+    Token value;
+    ColumnValueExpression *right;
+    
+    ColumnValueExpression(Token token) : Expression(token) {}
+
+    string tokenLiteral() override
+    {
+      return token.literal;
+    }
+
+    operator string() override
+    {
+      ostringstream ss;
+      ss << token.literal << " = " << value.literal; 
+      return ss.str();
+    }
+  };
+
+  struct WhereExpression : public Expression 
+  {
+    Token value;
+    Token op;
+
+    WhereExpression(Token token) : Expression(token) {}
+
+    /**
+     * @brief Gets token literal of node
+     * 
+     * @return string Name of column chosen
+     */
+    string tokenLiteral() override
+    {
+      return token.literal;
+    }
+
+    operator string() override 
+    {
+      ostringstream ss;
+      ss << token.literal << " " << op.literal << " " << value.literal << std::endl;
     }
   };
 
@@ -361,6 +449,35 @@ namespace ast
       ss << "SELECT ";
       ss << std::string(*query) << " FROM TABLE ";
       ss << std::string(*name) << ";";
+      return ss.str();
+    }
+  };
+
+  /**
+   * @brief Form: UPDATE {table} SET {column-value expr} WHERE {where-condition expr}
+   */
+  struct UpdateTableStatement : public Statement 
+  {
+    Identifier *name;
+    ColumnValueExpression *column_value;
+    WhereExpression *query;
+
+    UpdateTableStatement(Token token) : Statement(token)
+    {
+    }
+
+    string tokenLiteral() override
+    {
+      return "UPDATE";
+    }
+
+    operator string() override
+    {
+      ostringstream ss;
+      ss << "UPDATE ";
+      ss << std::string(*name);
+      ss << " SET " << std::string(*column_value);
+      ss << " WHERE " << std::string(*query) << ";";
       return ss.str();
     }
   };

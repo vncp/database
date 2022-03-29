@@ -153,7 +153,10 @@ public:
     {
       if (db.tables[i].name() == tbl_name)
       {
-        fieldmapType fields = db.tables[i].fields;
+        fieldmapType fields;
+        for (auto pair : db.tables[i].fields) {
+          fields[pair.first] = pair.second; 
+        }
         std::ostringstream ss;
         ss << "|";
         for (auto [name, field] : fields)

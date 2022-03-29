@@ -56,6 +56,10 @@ namespace token_type
   const TokenType INSERT = "INSERT";
   const TokenType INTO = "INTO";
   const TokenType VALUES = "VALUES";
+  const TokenType DELETE = "DELETE";
+  const TokenType WHERE = "WHERE";
+  const TokenType UPDATE = "UPDATE";
+  const TokenType SET = "SET";
 
   // Arithmetic
   const TokenType BANG = "!";
@@ -83,7 +87,11 @@ namespace token_type
       {"ADD", ADD},
       {"INSERT", INSERT},
       {"INTO", INTO},
-      {"VALUES", VALUES}
+      {"VALUES", VALUES},
+      {"DELETE", DELETE},
+      {"WHERE", WHERE},
+      {"UPDATE", UPDATE},
+      {"SET", SET}
   };
 
   std::unordered_map<std::string, TokenType> types = {

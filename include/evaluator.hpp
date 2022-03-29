@@ -143,10 +143,16 @@ std::unordered_map<std::string, evalFnType> evalStatementFns = {
       }
       cout << ProtoGenerator::printTBL(current_database->name(), std::string(*node_->name)) << endl;
       return new object::Integer(7); })},
-      /*
     {"INSERT", evalFnType([](ast::Node *node, DatabaseObject *current_database) {
       auto node_ = dynamic_cast<ast::InsertTableStatement*>(node);
-    })}, */
+      // Database check
+      if (current_database->name() == "nil") {
+        cout << "!Failed to insert to table since no database is selected.\n";
+      }
+      // Table check
+
+      return new object::Integer(1);
+    })},
     // Program statement
     {"PROGRAM", evalFnType([](ast::Node *node, DatabaseObject *current_database)
                            {

@@ -6,6 +6,9 @@
 #include <tokens.hpp>
 using namespace std;
 
+/**
+ * @brief Lexer class for finding all the tokens
+ */
 class Lexer
 {
 private:
@@ -15,11 +18,19 @@ private:
   char ch;
 
 public:
+  /**
+   * @brief Begins input processing
+   * 
+   * @param input input string provided by user
+   */
   Lexer(string input) : input(input)
   {
     readChar();
   }
 
+  /**
+   * @brief Reads the current char and sets positions and next position as necessary
+   */
   void readChar()
   {
     if (nextPosition >= input.length())
@@ -29,6 +40,11 @@ public:
     position = nextPosition++;
   }
 
+  /**
+   * @brief Looks at the enxt char without updating position
+   * 
+   * @return The next char
+   */
   char peekChar()
   {
     if (nextPosition >= input.length())
@@ -37,6 +53,11 @@ public:
       return input[nextPosition];
   }
 
+  /**
+   * @brief Processes the next token and restores the position states prior
+   * 
+   * @return Token The next token
+   */
   Token peekToken()
   {
     int old_position = position;
@@ -49,6 +70,11 @@ public:
     return next;
   }
 
+  /**
+   * @brief Progresses to the next token
+   * 
+   * @return Gives back the current token
+   */
   Token nextToken()
   {
     Token token;
@@ -151,7 +177,12 @@ public:
     return '0' <= ch && ch <= '9';
   }
 
-  // Reads number and changes token.type to either float or int
+  /**
+   * @brief Reads number and changes the passed token type to int or float depending on input
+   * 
+   * @param token the token to change the type
+   * @return string The literal string input by the user
+   */
   string readNumber(Token *token)
   {
     int curr_pos = position;
@@ -161,7 +192,7 @@ public:
     }
     token->type = token_type::INT;
     // If we find a decimal, then the token type is a float and we read the decimal integers
-    if (peekChar() == '.') {
+    if (ch == '.') {
       token->type = token_type::FLOAT;
       readChar();
       while (isDigit(ch))
@@ -172,6 +203,11 @@ public:
     return string(input.begin() + curr_pos, input.begin() + position);
   }
 
+  /**
+   * @brief Reads a token to determin whether its an identifier or keyword
+   * 
+   * @return string The token literal
+   */
   string readIdentifier()
   {
     int curr_pos = position;
