@@ -10,6 +10,7 @@
 
 #include <iostream>
 #include <string>
+#include <tuple>
 #include <algorithm>
 #include <string_view>
 #include <sstream>
@@ -79,8 +80,8 @@ class ProtoGenerator
     protoFile.close();
   }
 
-  static std::string generateMetadataComment(std::string_view tableName,
-                                             std::string_view databaseName)
+  static std::string generateMetadataComment(std::string tableName,
+                                             std::string databaseName)
   {
     std::ostringstream ss;
     ss << "/*    METADATA-START\n";

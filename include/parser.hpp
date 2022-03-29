@@ -197,6 +197,10 @@ public:
     {
       return parseCommand();
     }
+    else if (currToken.type == token_type::INSERT)
+    {
+      return parseInsertTableStatement();
+    }
     else if (currToken.type == token_type::CREATE)
     {
       if (peekToken.type == token_type::DATABASE)
@@ -383,6 +387,55 @@ public:
     return statement;
   }
 
+  // Parse takens for inserting data into a table
+  ast::InsertTableStatement *parseInsertTableStatement() {
+    // INSERT
+    ast::InsertTableStatement *statement = new ast::InsertTableStatement{currToken};
+    nextToken();
+    // INTO
+    if (currToken.type == token_type::INTO)
+    {
+      nextToken();
+    }
+    else
+    {
+      throw expected_token_error(currToken.literal, "INTO");
+    }
+
+    // {LITERAL}
+    statement->name = new ast::Identifier{currToken, currToken.literal};
+    nextToken();
+    
+    // VALUES
+    if (currToken.type == token_type::VALUES)
+    {
+      nextToken();
+    }
+    else
+    {
+      throw expected_token_error(currToken.literal, "VALUES");
+    }
+    // (
+    if (currToken.type != token_type::LPAREN)
+    {
+      throw expected_token_error(currToken.literal, "(");
+    }
+    nextToken();
+    statement->column_list = parseColumnLiteral();
+    nextToken();
+    // )
+    if (currToken.type != token_type::RPAREN)
+    {
+      throw expected_token_error(currToken.literal, ")");
+    }
+    nextToken();
+    if (currToken.type != token_type::SEMICOLON)
+    {
+      throw expected_token_error(currToken.literal, ";");
+    }
+    return statement;
+  }
+
   ast::AlterTableStatement *parseAlterTableStatement()
   {
     ast::AlterTableStatement *statement = new ast::AlterTableStatement{currToken};
@@ -452,6 +505,52 @@ public:
     return statement;
   }
 
+  // Recursively parse column literals
+  ast::ColumnLiteralExpression *parseColumnLiteral() {
+    // Number
+    ast::ColumnLiteralExpression *expr;
+    if (currToken.type == token_type::INT)
+    {
+      expr = new ast::ColumnLiteralExpression{currToken, Token{token_type::INT, "INT"}};
+      nextToken();
+    }
+    else if (currToken.type == token_type::FLOAT)
+    {
+      expr = new ast::ColumnLiteralExpression{currToken, Token{token_type::FLOAT, "FLOAT"}};
+      nextToken();
+    }
+    else {
+      // String
+      if (currToken.type != token_type::QUOTE) 
+      {
+        throw expected_token_error(currToken.literal, "'");
+      }
+      nextToken();
+      if (currToken.type != token_type::IDENTIFIER)
+      {
+        throw expected_token_error(currToken.literal, "{IDENTIFIER}");
+      }
+      expr = new ast::ColumnLiteralExpression{currToken, Token{token_type::IDENTIFIER, "IDENTIFIER"}};
+      nextToken();
+      if (currToken.type != token_type::QUOTE)
+      {
+        throw expected_token_error(currToken.literal, "'");
+      }
+    }
+
+    // If we see a comma next then parse another column literal otherwise make it null
+    if (currToken.type == token_type::COMMA)
+    {
+      nextToken();
+      expr->right = parseColumnLiteral();
+    }
+    else
+    {
+      expr->right = static_cast<ast::ColumnLiteralExpression *>(nullptr);
+    }
+    return expr;
+  }
+
   ast::ColumnDefinitionExpression *parseColumnDefinition(bool single = false)
   {
     auto expr = new ast::ColumnDefinitionExpression{currToken, peekToken};
@@ -459,7 +558,6 @@ public:
     token_type::TokenType varType = token_type::lookUpType(currToken.literal);
     if (varType == token_type::TYPE)
     {
-
       throw unknown_type_error(currToken.literal);
     }
     if (varType == token_type::VARCHAR_TYPE || varType == token_type::CHAR_TYPE)

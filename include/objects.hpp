@@ -24,6 +24,7 @@ namespace ast {
   struct ColumnDefinitionExpression;
   struct CreateDatabaseStatement;
   struct CreateTableStatement;
+  struct InsertTableStatement;
 };
 
 namespace object

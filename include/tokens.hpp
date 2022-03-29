@@ -25,6 +25,7 @@ namespace token_type
   const TokenType IDENTIFIER = "IDENTIFIER";
   const TokenType TYPE = "TYPE";
   const TokenType INT = "INT";
+  const TokenType FLOAT = "FLOAT";
 
   // Types
   const TokenType INT_TYPE = "INT_TYPE";
@@ -40,6 +41,7 @@ namespace token_type
   // Scope Symbols
   const TokenType LPAREN = "(";
   const TokenType RPAREN = ")";
+  const TokenType QUOTE = "'";
 
   // Keywords
   const TokenType TABLE = "TABLE";
@@ -51,6 +53,9 @@ namespace token_type
   const TokenType USE = "USE";
   const TokenType FROM = "FROM";
   const TokenType ADD = "ADD";
+  const TokenType INSERT = "INSERT";
+  const TokenType INTO = "INTO";
+  const TokenType VALUES = "VALUES";
 
   // Arithmetic
   const TokenType BANG = "!";
@@ -76,6 +81,9 @@ namespace token_type
       {"USE", USE},
       {"FROM", FROM},
       {"ADD", ADD},
+      {"INSERT", INSERT},
+      {"INTO", INTO},
+      {"VALUES", VALUES}
   };
 
   std::unordered_map<std::string, TokenType> types = {

@@ -60,6 +60,9 @@ public:
     }
     switch (ch)
     {
+    case '\'':
+      token = {token_type::QUOTE, ch};
+      break;
     case ';':
       token = {token_type::SEMICOLON, ch};
       break;
@@ -126,8 +129,7 @@ public:
       }
       else if (isDigit(ch))
       {
-        token.type = token_type::INT;
-        token.literal = readNumber();
+        token.literal = readNumber(&token);
         return token;
       }
       else
@@ -149,12 +151,23 @@ public:
     return '0' <= ch && ch <= '9';
   }
 
-  string readNumber()
+  // Reads number and changes token.type to either float or int
+  string readNumber(Token *token)
   {
     int curr_pos = position;
     while (isDigit(ch))
     {
       readChar();
+    }
+    token->type = token_type::INT;
+    // If we find a decimal, then the token type is a float and we read the decimal integers
+    if (peekChar() == '.') {
+      token->type = token_type::FLOAT;
+      readChar();
+      while (isDigit(ch))
+      {
+        readChar();
+      }
     }
     return string(input.begin() + curr_pos, input.begin() + position);
   }

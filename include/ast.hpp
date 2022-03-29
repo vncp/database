@@ -131,10 +131,13 @@ namespace ast
 
   // Expression consisting of possibly multiple column literals
   struct ColumnLiteralExpression : public Expression {
-    Token token;
+    // The type that's associated with the literal (read at runtime)
+    Token token_vartype;
+
     ColumnLiteralExpression *right;
     
-    ColumnLiteralExpression(Token token) : Expression(token) {}
+    ColumnLiteralExpression(Token token, Token type) : Expression(token),
+                                                       token_vartype(type) {}
 
     string tokenLiteral() override 
     {
@@ -382,11 +385,14 @@ namespace ast
       ss << "INSERT INTO";
       ss << std::string(*name) << "(";
       ColumnLiteralExpression *curr;
-      for (curr = column_list, column_list->right != nullptr; column_list = column_list->right)
-
-      ss << std::string()
+      for (curr = column_list; column_list->right != nullptr; column_list = column_list->right)
+      {
+        ss << std::string(*column_list) << ", ";
+      }
+      ss << std::string();
+      ss << ");";
       return ss.str();
     }
-  }
+  };
 };
 #endif /* __AST_HPP__ */

@@ -196,6 +196,27 @@ TEST(ParserTest, ColumnDefinitions)
   EXPECT_EQ(expression->count->token.literal, "10");
 }
 
+TEST(ParserTest, ColumnLiterals)
+{
+  std::string test = "INSERT INTO tbl_1 VALUES(17, 'Bob');";
+  Lexer lexer(test);
+  SQLParser parser(&lexer);
+  ast::Program *program = parser.parseSql();
+  ASSERT_NE(program, nullptr);
+  ASSERT_EQ(program->statements.size(), 1);
+
+  ast::InsertTableStatement *statement = dynamic_cast<ast::InsertTableStatement *>(program->statements[0]);
+  ast::ColumnLiteralExpression *expression = dynamic_cast<ast::ColumnLiteralExpression *>(statement->column_list);
+
+  EXPECT_EQ(expression->tokenLiteral(), "17");
+  EXPECT_EQ(expression->token.literal, "17");
+  EXPECT_EQ(expression->token_vartype.literal, "INT");
+  expression = expression->right;
+  EXPECT_EQ(expression->tokenLiteral(), "Bob");
+  EXPECT_EQ(expression->token.literal, "Bob");
+  EXPECT_EQ(expression->token_vartype.literal, "IDENTIFIER");
+}
+
 TEST(ParserTest, ParserErrors)
 {
   std::string test = "CREATE TABLE TABLE;";
@@ -240,6 +261,7 @@ TEST(ParserTest, ParserErrors)
     EXPECT_EQ(string(e.what()), "Parse error: no parse functions found for token:  '+'.");
   }
 }
+
 
 TEST(ParserTest, ParseCommands)
 {
