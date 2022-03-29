@@ -129,6 +129,27 @@ namespace ast
     }
   };
 
+  // Expression consisting of possibly multiple column literals
+  struct ColumnLiteralExpression : public Expression {
+    Token token;
+    ColumnLiteralExpression *right;
+    
+    ColumnLiteralExpression(Token token) : Expression(token) {}
+
+    string tokenLiteral() override 
+    {
+      return token.literal;
+    }
+
+    operator string() override
+    {
+      ostringstream ss;
+      ss << token.literal;
+      return ss.str();
+    }
+  };
+
+  // Expression consisting of possibly multiple column definiitions
   struct ColumnDefinitionExpression : public Expression
   {
     Token token_vartype;
@@ -341,5 +362,31 @@ namespace ast
     }
   };
 
+  struct InsertTableStatement : public Statement
+  {
+    Identifier *name;
+    ColumnLiteralExpression *column_list;
+
+    InsertTableStatement(Token token) : Statement(token) 
+    {
+    }
+
+    string tokenLiteral() override
+    {
+      return "INSERT";
+    }
+
+    operator string() override
+    {
+      ostringstream ss;
+      ss << "INSERT INTO";
+      ss << std::string(*name) << "(";
+      ColumnLiteralExpression *curr;
+      for (curr = column_list, column_list->right != nullptr; column_list = column_list->right)
+
+      ss << std::string()
+      return ss.str();
+    }
+  }
 };
 #endif /* __AST_HPP__ */

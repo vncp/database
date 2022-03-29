@@ -19,7 +19,7 @@
 
 namespace fs = std::experimental::filesystem;
 // Fieldname , <Type, Count, fieldNum, sqlType>
-using fieldmapType = std::unordered_map<std::string, std::tuple<std::string, int, int, std::string>>;
+using fieldmapType = std::unordered_map<std::string, std::tuple<std::string, int>>;
 
 namespace paths
 {
@@ -29,12 +29,6 @@ namespace paths
   auto DATA_PATH = fs::current_path() / "data";
 };
 using namespace paths;
-
-std::unordered_map<std::string, std::string> typeMap = {
-    {"int", "int64"},
-    {"char", "string"},
-    {"varchar", "string"},
-    {"float", "float"}};
 
 class ProtoGenerator
 {
@@ -64,7 +58,7 @@ class ProtoGenerator
     fs::create_directories(PROJECT_ROOT / "include" / "generated");
   }
 
-  // Create a new Table
+  // Create a new Table. Called on refresh
   void protocGenerate(DatabaseObject *database, TableObject table)
   {
     if (!fs::exists(DATA_PATH / database->name()))
@@ -74,27 +68,24 @@ class ProtoGenerator
     std::ofstream protoFile(DATA_PATH / database->name() / (table.name() + ".proto"));
     protoFile << PROTO_VERSION << "\n";
     protoFile << "package " << database->name() << ";\n\n";
-    protoFile << generateMetadataComment(table.maxFieldNum, table.name(), database->name());
+    protoFile << generateMetadataComment(table.name(), database->name());
     protoFile << "message " << table.name() << " {\n";
     for (auto field : table.fields)
     {
-      protoFile << "\t // " << get<1>(field.second) << " " << get<3>(field.second) << "\n";
-      protoFile << "\t" << get<0>(field.second) << " " << field.first << " = " << get<2>(field.second) << ";\n";
+      protoFile << "\t" <<  field.first << " = " << get<0>(field.second) << " " << get<1>(field.second) << "\n";
     }
     protoFile << "}\n";
     protoFile.flush();
     protoFile.close();
   }
 
-  static std::string generateMetadataComment(const int maxNumField,
-                                             std::string_view tableName,
+  static std::string generateMetadataComment(std::string_view tableName,
                                              std::string_view databaseName)
   {
     std::ostringstream ss;
     ss << "/*    METADATA-START\n";
     ss << "databaseName " << databaseName << std::endl;
     ss << "tableName " << tableName << std::endl;
-    ss << "maxFieldNum " << maxNumField << std::endl;
     ss << "METADATA-END    */\n";
     return ss.str();
   }
@@ -132,6 +123,7 @@ public:
     return fs::create_directory(DATA_PATH / db_name);
   }
 
+  // Create table object from fieldmapType
   static DatabaseObject createTBL(std::string db_name, std::string tbl_name, fieldmapType fields)
   {
     auto db_path = DATA_PATH / db_name;
@@ -144,7 +136,7 @@ public:
     for (const auto &field : fields)
     {
       auto second = field.second;
-      tbl.addField(field.first, typeMap[get<0>(second)], get<2>(second), get<1>(second), get<3>(second));
+      tbl.addField(field.first, get<0>(second), get<1>(second));
     }
     DatabaseObject curr_db(db_name);
     curr_db.insertTable(tbl);
@@ -152,6 +144,7 @@ public:
     return curr_db;
   }
 
+  // Converts a databse and tables to a readable format
   static std::string printTBL(std::string db_name, std::string tbl_name)
   {
     DatabaseObject db = loadDB(db_name);
@@ -164,7 +157,7 @@ public:
         ss << "|";
         for (auto [name, field] : fields)
         {
-          ss << " " << name << " " << get<3>(field);
+          ss << " " << name << " " << get<0>(field);
           ss << (get<1>(field) > 1 ? ("(" + to_string(get<1>(field)) + ") |") : " |");
         }
         return ss.str();
@@ -173,6 +166,7 @@ public:
     return "!Failed to query tbl_1 because it does not exist.";
   }
 
+  //add a field to an existing table
   static DatabaseObject addFieldTBL(std::string db_name, std::string tbl_name, std::string fieldName, std::string fieldCount, std::string fieldType)
   {
     DatabaseObject db = loadDB(db_name);
@@ -180,7 +174,7 @@ public:
     {
       if (db.tables[i].name() == tbl_name)
       {
-        db.tables[i].addField(fieldName, typeMap[fieldType], atoi(fieldCount.c_str()), fieldType);
+        db.tables[i].addField(fieldName, fieldType, atoi(fieldCount.c_str()));
         // Memory instance updated, now apply to file. Current will be updated after return
         ProtoGenerator pg(&db);
         return db;
@@ -189,26 +183,31 @@ public:
     return DatabaseObject("nil");
   }
 
+  // Delete all files then remove the directory
   static bool deleteDB(std::string db_name)
   {
-    return !fs::remove_all(DATA_PATH / db_name);
+    fs::remove_all(DATA_PATH / db_name);
+    return !fs::remove(DATA_PATH);
   }
 
+  // Deletes a specific table from the database's path
   static bool deleteTBL(std::string db_name, std::string tbl_name)
   {
     return !fs::remove(DATA_PATH / db_name / (tbl_name + ".proto"));
   }
 
+  // Load database and parse table into the database and table classes
   static DatabaseObject loadDB(std::string db_name)
   {
     DatabaseObject res(db_name);
     auto db_path = (DATA_PATH / db_name);
+
+    // Read metadata
     std::string databaseName = "";
     std::string tableName = "";
     for (const auto &file : fs::directory_iterator(db_path))
     {
       auto proto_path = file.path();
-      int maxFieldNum = 0;
 
       std::ifstream db_file(proto_path);
       std::string prev = "";
@@ -228,14 +227,8 @@ public:
         db_file >> next;
       }
       tableName = next;
-      while (curr != "maxFieldNum")
-      {
-        prev = curr;
-        curr = next;
-        db_file >> next;
-      }
-      maxFieldNum = stoi(next.c_str());
-      // Now read in message fields to table
+
+      // Now read in message field to table and close file before we get to the actual data
       TableObject tbl(tableName);
       std::string sqlcount = "";
       std::string sqltype = "";
@@ -251,8 +244,8 @@ public:
           curr = next;
           db_file >> next;
         }
-        maxFieldNum = std::max(stoi(next), maxFieldNum);
-        tbl.addField(prev, type, stoi(next.c_str()), stoi(sqlcount.c_str()), sqltype);
+        // TODO: Rewrite field parser
+        //tbl.addField(prev, type, stoi(next.c_str()), stoi(sqlcount.c_str()), sqltype);
         sqlcount = sqltype;
         sqltype = type;
         type = prev;
@@ -267,4 +260,4 @@ public:
   }
 };
 
-#endif /* __PROTO_GENERATOR__ */
+#endif //__PROTO_GENERATOR__

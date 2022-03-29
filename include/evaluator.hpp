@@ -20,9 +20,10 @@
 
 object::Object *eval(ast::Node *node, DatabaseObject *current_database);
 
-// Fieldname , <Type, Count, fieldNum>
-using fieldmapType = std::unordered_map<std::string, std::tuple<std::string, int, int, std::string>>;
+// Fieldname , <Type, Count>
+using fieldmapType = std::unordered_map<std::string, std::tuple<std::string, int>>;
 
+// Evaluate column definition expression node and create a fieldMapType from it
 fieldmapType evalFields(ast::ColumnDefinitionExpression *node)
 {
   fieldmapType res;
@@ -30,8 +31,7 @@ fieldmapType evalFields(ast::ColumnDefinitionExpression *node)
   while (node != nullptr)
   {
     res[node->tokenLiteral()] = make_tuple(node->token_vartype.literal,
-                                           (node->count == nullptr ? 1 : node->count->value),
-                                           fieldNum++, node->token_vartype.literal);
+                                           (node->count == nullptr ? 1 : node->count->value));
     node = node->right;
   }
   return res;
@@ -41,6 +41,7 @@ fieldmapType evalFields(ast::ColumnDefinitionExpression *node)
 using evalFnType = std::function<object::Object *(ast::Node *, DatabaseObject *)>;
 // Map token identifiers with equivalent runtimes
 std::unordered_map<std::string, evalFnType> evalStatementFns = {
+    // Create a table using ProtoGenerator::createTBL based on fields evaluated using evalFields()
     {"CREATETBL", evalFnType([](ast::Node *node, DatabaseObject *current_database)
                              {
       auto node_ = dynamic_cast<ast::CreateTableStatement*>(node);
@@ -48,8 +49,9 @@ std::unordered_map<std::string, evalFnType> evalStatementFns = {
       if (current_database->name() == "nil") 
       {
         cout << "Not currently using any database.\n";
+        return new object::Integer(1);
       }
-        DatabaseObject new_db = ProtoGenerator::createTBL(current_database->name(), std::string(*node_->name), fields);
+      DatabaseObject new_db = ProtoGenerator::createTBL(current_database->name(), std::string(*node_->name), fields);
       if(new_db.name() != "nil") 
       {
         //*current_database = ProtoGenerator::loadDB(current_database->name());
@@ -58,6 +60,7 @@ std::unordered_map<std::string, evalFnType> evalStatementFns = {
       }
       cout << "!Failed to create " << std::string(*node_->name) << " because it already exists.\n";
       return new object::Integer(1); })},
+    // Create a database using  current database object node information
     {"CREATEDB", evalFnType([](ast::Node *node, DatabaseObject *current_database)
                             {
       auto node_ = dynamic_cast<ast::CreateDatabaseStatement*>(node);
@@ -67,6 +70,7 @@ std::unordered_map<std::string, evalFnType> evalStatementFns = {
       }
       cout << "!Failed to create " << std::string(*node_->name) << " as it already exists.\n";
       return new object::Integer(1); })},
+    // Drop table in the current database
     {"DROPTBL", evalFnType([](ast::Node *node, DatabaseObject *current_database)
                            {
       auto node_ = dynamic_cast<ast::DropTableStatement*>(node);
@@ -82,6 +86,7 @@ std::unordered_map<std::string, evalFnType> evalStatementFns = {
       }
       cout << "Table " << std::string(*node_->name) << " deleted.\n";
       return new object::Integer(0); })},
+    // Deletes database directory
     {"DROPDB", evalFnType([](ast::Node *node, DatabaseObject *current_database)
                           {
       auto node_ = dynamic_cast<ast::DropDatabaseStatement*>(node);
@@ -92,6 +97,7 @@ std::unordered_map<std::string, evalFnType> evalStatementFns = {
       }
       cout << "Database " << std::string(*node_->name) << " deleted.\n";
       return new object::Integer(0); })},
+    // Select the currently used database
     {"USE", evalFnType([](ast::Node *node, DatabaseObject *current_database)
                        {
       auto node_ = dynamic_cast<ast::UseDatabaseStatement*>(node);
@@ -103,6 +109,7 @@ std::unordered_map<std::string, evalFnType> evalStatementFns = {
       } 
       cout << "!Failed to use " << std::string(*node_->name) << " because it doesn't exist.\n";
       return new object::Integer(1); })},
+    // Alter a table
     {"ALTER", evalFnType([](ast::Node *node, DatabaseObject *current_database)
                          {
       auto node_ = dynamic_cast<ast::AlterTableStatement*>(node);
@@ -125,15 +132,22 @@ std::unordered_map<std::string, evalFnType> evalStatementFns = {
         return new object::Integer(0);
       }
       cout << "!Could not modify or find table.\n";
-      return new object::Integer(1); })},
+      return new object::Integer(1); 
+    })},
+    // Prints the table
     {"SELECT", evalFnType([](ast::Node *node, DatabaseObject *current_database)
                           {
       auto node_ = dynamic_cast<ast::SelectTableStatement*>(node);
       if (current_database->name() == "nil") {
         cout << "!Failed to query since no databases are being used.\n";
       }
-      cout << ProtoGenerator::printTBL(current_database->name(), std::string(*node_->name)) << endl;;
+      cout << ProtoGenerator::printTBL(current_database->name(), std::string(*node_->name)) << endl;
       return new object::Integer(7); })},
+      /*
+    {"INSERT", evalFnType([](ast::Node *node, DatabaseObject *current_database) {
+      auto node_ = dynamic_cast<ast::InsertTableStatement*>(node);
+    })}, */
+    // Program statement
     {"PROGRAM", evalFnType([](ast::Node *node, DatabaseObject *current_database)
                            {
       auto node_ = dynamic_cast<ast::Program*>(node);
@@ -143,6 +157,7 @@ std::unordered_map<std::string, evalFnType> evalStatementFns = {
         ret = eval(stmt, current_database);
       }
       return ret; })},
+    // Exit program
     {"EXIT", evalFnType([](ast::Node *node, DatabaseObject *current_database)
                         {
       auto node_ = dynamic_cast<ast::Program*>(node);

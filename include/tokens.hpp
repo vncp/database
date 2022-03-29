@@ -31,6 +31,7 @@ namespace token_type
   const TokenType CHAR_TYPE = "CHAR_TYPE";
   const TokenType VARCHAR_TYPE = "VARCHAR_TYPE";
   const TokenType FLOAT_TYPE = "FLOAT_TYPE";
+  const TokenType BOOL_TYPE = "BOOL_TYPE";
 
   // Delimiters
   const TokenType COMMA = ",";
@@ -83,6 +84,7 @@ namespace token_type
       {"FLOAT", FLOAT_TYPE},
       {"VARCHAR", VARCHAR_TYPE},
       {"CHAR", CHAR_TYPE},
+      {"BOOL", BOOL_TYPE},
   };
 
   std::unordered_map<std::string, TokenType> commands = {

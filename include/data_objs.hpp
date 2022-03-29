@@ -26,7 +26,7 @@ public:
   int maxFieldNum;
   std::string table_name = "NAME_ERROR";
   // fieldname, TUPLE: (type<0>, int<1> count, int<2> fieldNum, string<3> SQLType )
-  std::unordered_map<std::string, std::tuple<std::string, int, int, std::string>> fields;
+  std::unordered_map<std::string, std::tuple<std::string, int>> fields;
 
   TableObject(std::string name, int maxFieldNum = 0) : table_name(name),
                                                        maxFieldNum(maxFieldNum) {}
@@ -42,17 +42,17 @@ public:
     {
       return false;
     }
-    fields[name] = std::make_tuple(type_name, count, ++maxFieldNum, sql_type);
+    fields[name] = std::make_tuple(type_name, count);
     return true;
   }
 // For reloading
-  bool addField(std::string name, std::string type_name, int fieldNum, int count, std::string sqltype)
+  bool addField(std::string name, std::string type_name, int count)
   {
     if (fields.find(name) != fields.end())
     {
       return false;
     }
-    fields[name] = std::make_tuple(type_name, count, fieldNum, sqltype);
+    fields[name] = std::make_tuple(type_name, count);
     return true;
   }
 
