@@ -242,7 +242,7 @@ public:
     }
     else if (currToken.type == token_type::DELETE)
     {
-      //return parseDeleteTableStatement();
+      return parseDeleteTableStatement();
     }
     else if (currToken.type == token_type::CREATE)
     {
@@ -301,9 +301,16 @@ public:
   }
 
   ast::SelectTableStatement *parseSelectTableStatement() {
+    // SELECT
+    if (currToken.type != token_type::SELECT) {
+      throw expected_token_error(currToken.literal, "SELECT");
+    }
     ast::SelectTableStatement *statement = new ast::SelectTableStatement{currToken};
     nextToken();
-    statement->query = parseQueryExpression();
+
+    statement->column_query = parseQueryExpression();
+    nextToken();
+
     if (currToken.type != token_type::FROM) {
       throw expected_token_error(currToken.literal, "FROM");
     }
@@ -312,20 +319,52 @@ public:
       throw expected_token_error(currToken.type, "IDENTIFIER");
     }
     statement->name = new ast::Identifier{currToken, currToken.literal};
-    nextToken();
-    if (currToken.type == token_type::COMMA) {
-      throw expected_token_error(currToken.type, ",");
+
+    if (peekToken.type == token_type::SEMICOLON) {
+      nextToken();
+      nextToken();
+      return statement;
+    } else if (peekToken.type == token_type::WHERE) {
+      nextToken();
+      nextToken();
+      statement->query = parseWhereExpression();
+      nextToken();
+      if (currToken.type != token_type::SEMICOLON) {
+        throw expected_token_error(currToken.type, ";");
+      }
+      nextToken();
+      return statement;
     }
-    return statement;
+    else
+    {
+      throw expected_token_error(currToken.type, "WHERE OR ;");
+    }
   }
 
-  ast::QueryExpression *parseQueryExpression() {
+  ast::ColumnQueryExpression *parseQueryExpression() {
     if (currToken.type == token_type::ASTERISK) {
-      auto expr = new ast::QueryExpression{currToken};
+      std::cout << "ASTERISK\n";
+      ast::ColumnQueryExpression *expr = new ast::ColumnQueryExpression{currToken};
+      expr->right = static_cast<ast::ColumnQueryExpression *>(nullptr);
       nextToken();
       return expr;
-    } else {
-      throw not_supported_error("querying by column-list expressions");
+    } else if (currToken.type == token_type::IDENTIFIER) {
+      ast::ColumnQueryExpression *expr = new ast::ColumnQueryExpression{currToken};
+      if (peekToken.type == token_type::COMMA) {
+        nextToken();
+        nextToken();
+        expr->right = parseQueryExpression();
+        return expr;
+      }
+      else if (peekToken.type == token_type::FROM)
+      {
+        expr->right = static_cast<ast::ColumnQueryExpression *>(nullptr);
+        return expr;
+      }
+      else
+      {
+        throw expected_token_error(currToken.type, "FROM OR ,");
+      }
     }
   }
 
@@ -421,6 +460,43 @@ public:
     if (currToken.type != token_type::RPAREN)
     {
       throw expected_token_error(currToken.literal, ")");
+    }
+    nextToken();
+    if (currToken.type != token_type::SEMICOLON)
+    {
+      throw expected_token_error(currToken.literal, ";");
+    }
+    return statement;
+  }
+
+  ast::DeleteTableStatement *parseDeleteTableStatement() {
+    if (currToken.type != token_type::DELETE) {
+      throw expected_token_error(currToken.literal, "DELETE");
+    }
+    ast::DeleteTableStatement *statement = new ast::DeleteTableStatement{currToken};
+    nextToken();
+    if (currToken.type == token_type::FROM) {
+      nextToken();
+    }
+    else
+    {
+      throw expected_token_error(currToken.literal, "FROM");
+    }
+    if (currToken.type == token_type::IDENTIFIER) {
+      statement->name = new ast::Identifier{currToken, currToken.literal};
+    }
+    else
+    {
+      throw expected_token_error(currToken.literal, "{IDENTIFIER}");
+    }
+    nextToken();
+    if (currToken.type == token_type::WHERE) {
+      nextToken();
+      statement->query = parseWhereExpression();
+    }
+    else
+    {
+      throw expected_token_error(currToken.literal, "WHERE");
     }
     nextToken();
     if (currToken.type != token_type::SEMICOLON)

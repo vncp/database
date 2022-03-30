@@ -226,7 +226,7 @@ TEST(ParserTest, ColumnLiterals)
 }
 
 TEST(ParserTest, UpdateStatement_WhereExpressions_ColumnValueExpressions){
-  std::string test = "UPDATE product SET price = 14.99 WHERE name = 'Gizmo';";
+  std::string test = "UPDATE product \nSET price = 14.99 \nWHERE name = 'Gizmo';";
   Lexer lexer(test);
   SQLParser parser(&lexer);
   ast::Program *program =  parser.parseSql();
@@ -245,6 +245,109 @@ TEST(ParserTest, UpdateStatement_WhereExpressions_ColumnValueExpressions){
   EXPECT_EQ(where_expression->op.literal, "=");
   EXPECT_EQ(where_expression->value.literal, "Gizmo");
 }
+
+TEST(ParserTest, DeleteStatement)
+{
+  std::string test = "DELETE FROM product where name = 'Gizmo';";
+  Lexer lexer(test);
+  SQLParser parser(&lexer);
+  ast::Program *program =  parser.parseSql();
+  ASSERT_NE(program, nullptr);
+  ASSERT_EQ(program->statements.size(), 1);
+
+  ast::DeleteTableStatement *statement = dynamic_cast<ast::DeleteTableStatement *>(program->statements[0]);
+  ast::Identifier *table_name = statement->name;
+  ast::WhereExpression *delete_query = statement->query;
+
+  EXPECT_EQ(statement->token.literal, "DELETE");
+  EXPECT_EQ(table_name->token.literal, "product");
+  EXPECT_EQ(delete_query->token.literal, "name");
+  EXPECT_EQ(delete_query->op.literal, "=");
+  EXPECT_EQ(delete_query->value.literal, "Gizmo");
+}
+
+TEST(ParserTest, WhereExpressionNumeric) {
+  std::string test = "DELETE FROM product where price < 150;";
+  Lexer lexer(test);
+  SQLParser parser(&lexer);
+  ast::Program *program =  parser.parseSql();
+  ASSERT_NE(program, nullptr);
+  ASSERT_EQ(program->statements.size(), 1);
+
+  ast::DeleteTableStatement *statement = dynamic_cast<ast::DeleteTableStatement *>(program->statements[0]);
+  ast::Identifier *table_name = statement->name;
+  ast::WhereExpression *delete_query = statement->query;
+
+  EXPECT_EQ(statement->token.literal, "DELETE");
+  EXPECT_EQ(table_name->token.literal, "product");
+  EXPECT_EQ(delete_query->token.literal, "price");
+  EXPECT_EQ(delete_query->op.literal, "<");
+  EXPECT_EQ(delete_query->value.literal, "150");
+}
+
+TEST(ParserTest, SelectStatement_ColumnUnion)
+{
+  std::string test = "SELECT name, price FROM product;";
+  Lexer lexer(test);
+  SQLParser parser(&lexer);
+  ast::Program *program =  parser.parseSql();
+  ASSERT_NE(program, nullptr);
+  ASSERT_EQ(program->statements.size(), 1);
+
+  ast::SelectTableStatement *statement = dynamic_cast<ast::SelectTableStatement *>(program->statements[0]);
+  ast::Identifier *table_name = statement->name;
+  ast::ColumnQueryExpression *column_query = statement->column_query;
+
+  EXPECT_EQ(statement->token.literal, "SELECT");
+  EXPECT_EQ(table_name->token.literal, "product");
+  EXPECT_EQ(column_query->token.literal, "name");
+  ASSERT_NE(column_query->right, nullptr);
+  column_query = column_query->right;
+  EXPECT_EQ(column_query->token.literal, "price");
+}
+
+TEST(ParserTest, SelectStatement_SingleColumn)
+{
+  std::string test = "SELECT name FROM product;";
+  Lexer lexer(test);
+  SQLParser parser(&lexer);
+  ast::Program *program =  parser.parseSql();
+  ASSERT_NE(program, nullptr);
+  ASSERT_EQ(program->statements.size(), 1);
+
+  ast::SelectTableStatement *statement = dynamic_cast<ast::SelectTableStatement *>(program->statements[0]);
+  ast::Identifier *table_name = statement->name;
+  ast::ColumnQueryExpression *column_query = statement->column_query;
+
+  EXPECT_EQ(statement->token.literal, "SELECT");
+  EXPECT_EQ(table_name->token.literal, "product");
+  EXPECT_EQ(column_query->token.literal, "name");
+  EXPECT_EQ(column_query->right, nullptr);
+}
+
+TEST(ParserTest, SelectStatement_WhereExpression)
+{
+  std::string test = "SELECT name FROM product WHERE x = 1;";
+  Lexer lexer(test);
+  SQLParser parser(&lexer);
+  ast::Program *program =  parser.parseSql();
+  ASSERT_NE(program, nullptr);
+  ASSERT_EQ(program->statements.size(), 1);
+
+  ast::SelectTableStatement *statement = dynamic_cast<ast::SelectTableStatement *>(program->statements[0]);
+  ast::Identifier *table_name = statement->name;
+  ast::ColumnQueryExpression *column_query = statement->column_query;
+  ast::WhereExpression *query = statement->query;
+
+  EXPECT_EQ(statement->token.literal, "SELECT");
+  EXPECT_EQ(table_name->token.literal, "product");
+  EXPECT_EQ(column_query->token.literal, "name");
+  EXPECT_EQ(column_query->right, nullptr);
+  EXPECT_EQ(query->token.literal, "x");
+  EXPECT_EQ(query->op.literal, "=");
+  EXPECT_EQ(query->value.literal, "1");
+}
+
 
 TEST(ParserTest, ParserErrors)
 {
@@ -341,3 +444,4 @@ TEST(TableTestMem, AddFieldRecords)
     }
   }
 }
+

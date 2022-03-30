@@ -267,10 +267,11 @@ namespace ast
     }
   };
 
-  struct QueryExpression : public Expression
+  struct ColumnQueryExpression : public Expression
   {
-    // TODO: ColumnListExpression *comlumn_list;
-    QueryExpression(Token token) : Expression(token) {}
+    ColumnQueryExpression *right = nullptr;
+
+    ColumnQueryExpression(Token token) : Expression(token) {}
 
     string tokenLiteral() override
     {
@@ -279,7 +280,12 @@ namespace ast
 
     operator string() override
     {
-      return token.literal;
+      ostringstream ss;
+      ss << token.literal;
+      if (right != nullptr) {
+        ss << ", " << std::string(*right);
+      }
+      return ss.str();
     }
   };
 
@@ -432,7 +438,8 @@ namespace ast
   struct SelectTableStatement : public Statement
   {
     Identifier *name;
-    QueryExpression *query;
+    ColumnQueryExpression *column_query;
+    WhereExpression *query;
 
     SelectTableStatement(Token token) : Statement(token)
     {
@@ -447,8 +454,13 @@ namespace ast
     {
       ostringstream ss;
       ss << "SELECT ";
-      ss << std::string(*query) << " FROM TABLE ";
-      ss << std::string(*name) << ";";
+      ss << std::string(*column_query) << " FROM TABLE ";
+      ss << std::string(*name);
+      if (query) {
+        ss << " WHERE";
+        ss << std::string(*query);
+      }
+      ss << ";";
       return ss.str();
     }
   };
@@ -480,6 +492,31 @@ namespace ast
       ss << " WHERE " << std::string(*query) << ";";
       return ss.str();
     }
+  };
+
+  struct DeleteTableStatement : public Statement
+  {
+    Identifier *name;
+    WhereExpression *query;
+
+    DeleteTableStatement(Token token) : Statement(token)
+    {
+    }
+
+    string tokenLiteral() override
+    {
+      return "DELETE";
+    }
+
+    operator string() override
+    {
+      ostringstream ss;
+      ss << "DELETE FROM ";
+      ss << std::string(*name);
+      ss << " WHERE " << std::string(*query) << ";";
+      return ss.str();
+    }
+
   };
 
   struct InsertTableStatement : public Statement
