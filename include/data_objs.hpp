@@ -16,7 +16,6 @@
 #include <cstdarg>
 
 using variant_type = std::variant<
-    nullptr_t,
     int,
     bool,
     std::string,
@@ -62,7 +61,7 @@ public:
     std::pair<std::string, std::tuple<std::string, int>> newField;
     newField.first = name;
     newField.second = std::make_tuple(type_name, count);
-    fields.emplace_back(newField);
+    fields.push_back(newField);
     
     // Reallocate the new field for the current recorsd
     // EX. From |int|char|float| to |int|char|float|char|
@@ -71,7 +70,7 @@ public:
     int offset = fields_size;
     for (int i = 0; records_ptr != records.end(); records_ptr++) {
       if (--offset == 0) {
-        records.insert(records_ptr+1, std::nullptr_t());
+        records.insert(records_ptr+1, false);
         records_ptr++;
         offset = fields_size;
       }
@@ -113,8 +112,8 @@ public:
       } else {
         return "";
       }
-      return res;
     }
+    return res;
   }
 
   bool addRecord(char* fmt, ...) {
@@ -129,6 +128,7 @@ public:
         char *s;
       } Union;
 
+      std::string str;
       switch (fmt[i]) {
         case 'i':
           Union.i = va_arg(args, int);
@@ -137,10 +137,14 @@ public:
         case 'f':
           Union.f = va_arg(args, double);
           records.push_back(Union.f);
-          break;          break;
+          break;
         case 's':
           Union.s = va_arg(args, char*);
-          records.push_back(std::string(Union.s));
+          int i;
+          for(i = 0; Union.s[i] != '\0'; i++) {
+            str += Union.s[i];
+          }
+          records.push_back(str);
           break;
         case 'b':
           Union.b = va_arg(args, bool);

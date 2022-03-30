@@ -21,7 +21,7 @@
 object::Object *eval(ast::Node *node, DatabaseObject *current_database);
 
 // Fieldname , <Type, Count>
-using fieldmapType = std::unordered_map<std::string, std::tuple<std::string, int>>;
+using fieldmapType = std::list<std::pair<std::string, std::tuple<std::string, int>>>;
 
 // Evaluate column definition expression node and create a fieldMapType from it
 fieldmapType evalFields(ast::ColumnDefinitionExpression *node)
@@ -30,8 +30,8 @@ fieldmapType evalFields(ast::ColumnDefinitionExpression *node)
   int fieldNum = 1;
   while (node != nullptr)
   {
-    res[node->tokenLiteral()] = make_tuple(node->token_vartype.literal,
-                                           (node->count == nullptr ? 1 : node->count->value));
+    res.emplace_back(node->tokenLiteral(), make_tuple(node->token_vartype.literal,
+                                           (node->count == nullptr ? 1 : node->count->value)));
     node = node->right;
   }
   return res;
@@ -134,15 +134,39 @@ std::unordered_map<std::string, evalFnType> evalStatementFns = {
       cout << "!Could not modify or find table.\n";
       return new object::Integer(1); 
     })},
-    // Prints the table
-    {"SELECT", evalFnType([](ast::Node *node, DatabaseObject *current_database)
-                          {
+    // Prints the table based on the node parameters
+    {"SELECT", evalFnType([](ast::Node *node, DatabaseObject *current_database){
       auto node_ = dynamic_cast<ast::SelectTableStatement*>(node);
+
+      // Literal can be asterisk or LL of items
+      ast::ColumnQueryExpression *column_query = node_->column_query;
+      std::vector<std::string> filter_vec;
+      std::vector<std::string> *filter_ptr = &filter_vec;
+      while (column_query != nullptr) {
+        if (column_query->token.type == token_type::ASTERISK) {
+          filter_ptr = nullptr;
+          break;
+        }
+        filter_vec.push_back(column_query->token.literal);
+        column_query = column_query->right;
+      }
+
+      ast::WhereExpression *where_query = node_->query;
+      std::tuple<std::string, std::string, std::string> where_tpl;
+      std::tuple<std::string, std::string, std::string> *where_ptr = nullptr;
+      if (where_query != nullptr) {
+        where_tpl = make_tuple(where_query->token.literal, where_query->op.literal, where_query->value.literal);
+        where_ptr = &where_tpl;
+      }
+
       if (current_database->name() == "nil") {
         cout << "!Failed to query since no databases are being used.\n";
       }
-      cout << ProtoGenerator::printTBL(current_database->name(), std::string(*node_->name)) << endl;
+      cout << ProtoGenerator::printTBL(current_database->name(), std::string(*node_->name), filter_ptr, where_ptr) << endl;
       return new object::Integer(7); })},
+    /**
+     * @brief Insert values into a table by position
+     */
     {"INSERT", evalFnType([](ast::Node *node, DatabaseObject *current_database) {
       auto node_ = dynamic_cast<ast::InsertTableStatement*>(node);
       // Database check
@@ -153,6 +177,34 @@ std::unordered_map<std::string, evalFnType> evalStatementFns = {
 
       return new object::Integer(1);
     })},
+    /**
+     * @brief Delete rows from a table based on a query
+     */
+    {"DELETE", evalFnType([](ast::Node *node, DatabaseObject *current_database) {
+      auto node_ = dynamic_cast<ast::DeleteTableStatement*>(node);
+      // Database check
+      if (current_database->name() == "nil") {
+        cout << "!Failed to insert to table since no database is selected.\n";
+      }
+      // Table check
+
+      return new object::Integer(1);
+    })},
+    /**
+     * @brief Update columns in a table based on a query
+     * 
+     */
+    {"Update", evalFnType([](ast::Node *node, DatabaseObject *current_database) {
+      auto node_ = dynamic_cast<ast::UpdateTableStatement*>(node);
+      // Database check
+      if (current_database->name() == "nil") {
+        cout << "!Failed to insert to table since no database is selected.\n";
+      }
+      // Table check
+
+      return new object::Integer(1);
+    })},
+
     // Program statement
     {"PROGRAM", evalFnType([](ast::Node *node, DatabaseObject *current_database)
                            {

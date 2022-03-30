@@ -3,6 +3,7 @@
 CREATE DATABASE CS457_PA2;
 USE CS457_PA2;
 CREATE TABLE Product (pid int, name varchar(20), price float);
+SELECT * from Product;
 
 insert into Product values(1,	'Gizmo',      	19.99);
 insert into Product values(2,	'PowerGizmo', 	29.99);

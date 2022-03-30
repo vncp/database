@@ -343,10 +343,8 @@ public:
 
   ast::ColumnQueryExpression *parseQueryExpression() {
     if (currToken.type == token_type::ASTERISK) {
-      std::cout << "ASTERISK\n";
       ast::ColumnQueryExpression *expr = new ast::ColumnQueryExpression{currToken};
       expr->right = static_cast<ast::ColumnQueryExpression *>(nullptr);
-      nextToken();
       return expr;
     } else if (currToken.type == token_type::IDENTIFIER) {
       ast::ColumnQueryExpression *expr = new ast::ColumnQueryExpression{currToken};

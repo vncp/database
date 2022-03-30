@@ -325,6 +325,25 @@ TEST(ParserTest, SelectStatement_SingleColumn)
   EXPECT_EQ(column_query->right, nullptr);
 }
 
+TEST(ParserTest, SelectStatement_Asterisk)
+{
+  std::string test = "SELECT * FROM product;";
+  Lexer lexer(test);
+  SQLParser parser(&lexer);
+  ast::Program *program =  parser.parseSql();
+  ASSERT_NE(program, nullptr);
+  ASSERT_EQ(program->statements.size(), 1);
+
+  ast::SelectTableStatement *statement = dynamic_cast<ast::SelectTableStatement *>(program->statements[0]);
+  ast::Identifier *table_name = statement->name;
+  ast::ColumnQueryExpression *column_query = statement->column_query;
+
+  EXPECT_EQ(statement->token.literal, "SELECT");
+  EXPECT_EQ(table_name->token.literal, "product");
+  EXPECT_EQ(column_query->token.literal, "*");
+  EXPECT_EQ(column_query->token.type, token_type::ASTERISK);
+  EXPECT_EQ(column_query->right, nullptr);
+}
 TEST(ParserTest, SelectStatement_WhereExpression)
 {
   std::string test = "SELECT name FROM product WHERE x = 1;";
@@ -427,6 +446,10 @@ TEST(TableTestMem, AddFieldRecords)
   ASSERT_EQ(table.addField("a4", "varchar", 5), true);
   // Add corresponding record
   table.addRecord("isfs", 12, "Hello", 3.64, "Hello");
+  table.addRecord("i", 12);
+  table.addRecord("s", "Hello");
+  table.addRecord("f", 3.64);
+  table.addRecord("s", "Hello");
   for(auto record: table.records) {
     if(string *value = std::get_if<std::string>(&record)) {
       //std::cout << *value << std::endl;
@@ -439,8 +462,6 @@ TEST(TableTestMem, AddFieldRecords)
       EXPECT_EQ(*value, 3.64);
     } else if (bool *value = std::get_if<bool>(&record)) {
       //std::cout << *value << std::endl;
-    } else if (std::get_if<std::nullptr_t>(&record)) {
-      //std::cout << "NULL" << std::endl;
     }
   }
 }
