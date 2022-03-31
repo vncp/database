@@ -27,7 +27,7 @@ public:
   int fields_size = 0;
   std::string table_name = "NAME_ERROR";
   // fieldname, TUPLE: (type, count)
-  std::list<std::pair<std::string, std::tuple<std::string, int>>> fields;
+  std::vector<std::pair<std::string, std::tuple<std::string, int>>> fields;
 
   std::vector<variant_type> records;
 

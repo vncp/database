@@ -20,7 +20,7 @@
 
 namespace fs = std::experimental::filesystem;
 // Fieldname , <Type, Count, fieldNum, sqlType>
-using fieldmapType = std::list<std::pair<std::string, std::tuple<std::string, int>>>;
+using fieldmapType = std::vector<std::pair<std::string, std::tuple<std::string, int>>>;
 
 namespace paths
 {
@@ -66,16 +66,34 @@ class ProtoGenerator
     {
       fs::create_directories(DATA_PATH / database->name());
     }
+    
     std::ofstream protoFile(DATA_PATH / database->name() / (table.name() + ".proto"));
-    protoFile << PROTO_VERSION << "\n";
-    protoFile << "package " << database->name() << ";\n\n";
+    // Write metadata and fields
     protoFile << generateMetadataComment(table.name(), database->name());
     protoFile << "message " << table.name() << " {\n";
     for (auto field : table.fields)
     {
       protoFile << "\t" << field.first << " = " << get<0>(field.second) << " " << get<1>(field.second) << "\n";
     }
-    protoFile << "}\n";
+    protoFile << "}\n\n";
+
+    // Write data
+    for (auto record : table.records) {
+      if (auto val = std::get_if<std::string>(&record))
+      {
+        protoFile << "'" << *val << "'";
+      }
+      else if (auto val = std::get_if<int>(&record))
+      {
+        protoFile << *val;
+      }
+      else if (auto val = std::get_if<double>(&record))
+      {
+        protoFile << *val;
+      }
+      protoFile << "\n";
+    }
+
     protoFile.flush();
     protoFile.close();
   }
@@ -89,6 +107,108 @@ class ProtoGenerator
     ss << "tableName " << tableName << std::endl;
     ss << "METADATA-END    */\n";
     return ss.str();
+  }
+
+  /**
+   * @brief Get rows to print
+   * 
+   * @param tbl The table to look through
+   * @param where the filter query for where expr
+   * @return std::vector<int> 
+   */
+  static std::vector<int> getWhereRows(TableObject tbl,
+                                       std::tuple<std::string, std::string, std::string> *where = nullptr)
+  {
+    // Find Column Described by where[0]
+    auto record_iter = tbl.records.begin();
+    int row = 0;
+    int col = 0;
+    int whereCol = -1;
+    for (auto rec = tbl.fields.begin(); rec != tbl.fields.end(); rec++) {
+      if (where != nullptr && rec->first == get<0>(*where)) {
+        whereCol = col;
+      }
+    }
+
+    // Filter out rows described by where
+    std::vector<int> acceptedRows;
+    int rows = tbl.records.size() / tbl.fields_size;
+    acceptedRows.reserve(rows);
+    int cols = tbl.fields_size;
+    record_iter = tbl.records.begin();
+    for (row = 0; row < rows; row++) {
+      // Accept all columns
+      if (whereCol == -1) {
+        acceptedRows.push_back(row);
+      } else {
+        auto begin_iter = record_iter;
+        // Test String to compare to
+        std::string test = std::get<2>(*where);
+        // Check if whereCol constraints
+        // Make appropriate casts for each type and operator
+        // Try catches are for when user inputs different type than expected for where expr
+        bool rowCheck = false;
+        for (col = 0; col < cols; col++) {
+          if (whereCol == col) {
+            if (std::get<1>(*where) == "=") {
+              if (auto val = std::get_if<std::string>(&(*record_iter))) {
+                if (*val == test) rowCheck = true;
+              } else if (auto val = std::get_if<int>(&(*record_iter))) {
+                try {
+                  if (*val == std::stoi(test)) rowCheck = true;
+                } catch (const std::invalid_argument &ia) {}
+              } else if (auto val = std::get_if<double>(&(*record_iter))) {
+                try {
+                  if (*val == std::stod(test)) rowCheck = true;
+                } catch (const std::invalid_argument &ia) {}
+              }
+            } else if (std::get<1>(*where) == "!=") {
+              if (auto val = std::get_if<std::string>(&(*record_iter))) {
+                if (*val != test) rowCheck = true;
+              } else if (auto val = std::get_if<int>(&(*record_iter))) {
+                try {
+                  if (*val != std::stoi(test)) rowCheck = true;
+                } catch (const std::invalid_argument &ia) {}
+              } else if (auto val = std::get_if<double>(&(*record_iter))) {
+                try {
+                  if (*val != std::stod(test)) rowCheck = true;
+                } catch (const std::invalid_argument &ia) {}
+              }
+            } else if (std::get<1>(*where) == "<") {
+              if (auto val = std::get_if<std::string>(&(*record_iter))) {
+                if (*val < test) rowCheck = true;
+              } else if (auto val = std::get_if<int>(&(*record_iter))) {
+                try {
+                  if (*val < std::stoi(test)) rowCheck = true;
+                } catch (const std::invalid_argument &ia) {}
+              } else if (auto val = std::get_if<double>(&(*record_iter))) {
+                try {
+                  if (*val < std::stod(test)) rowCheck = true;
+                } catch (const std::invalid_argument &ia) {}
+              }
+            } else if (std::get<1>(*where) == ">") {
+              if (auto val = std::get_if<std::string>(&(*record_iter))) {
+                if (*val > test) rowCheck = true;
+              } else if (auto val = std::get_if<int>(&(*record_iter))) {
+                try {
+                  if (*val > std::stoi(test)) rowCheck = true;
+                } catch (const std::invalid_argument &ia) {}
+              } else if (auto val = std::get_if<double>(&(*record_iter))) {
+                try {
+                  if (*val > std::stod(test)) rowCheck = true;
+                } catch (const std::invalid_argument &ia) {}
+              }
+            }
+          }
+          record_iter++;
+        }
+        // We found a condition that matched so push to acceptedRows
+        if (rowCheck) {
+          acceptedRows.push_back(row);
+        }
+      }
+    }
+    return acceptedRows;
   }
 
 public:
@@ -125,7 +245,15 @@ public:
     return fs::create_directory(DATA_PATH / db_name);
   }
 
-  // Create table object from fieldmapType
+
+  /**
+   * @brief Creates a table from fieldmap type, adds to a database, and returns that db object
+   * 
+   * @param db_name the string of the database name
+   * @param tbl_name the string of the table name
+   * @param fields the fields defining the table schema
+   * @return DatabaseObject the updated database object
+   */
   static DatabaseObject createTBL(std::string db_name, std::string tbl_name, fieldmapType fields)
   {
     auto db_path = DATA_PATH / db_name;
@@ -146,8 +274,85 @@ public:
     return curr_db;
   }
 
+  static DatabaseObject deleteTBL (std::string db_name,
+                                   std::string tbl_name,
+                                   std::tuple<std::string, std::string, std::string> * where = nullptr)
+  {
+    DatabaseObject db = loadDB(db_name);
+    for (auto &table : db.tables) {
+      if (table.name() == tbl_name) {
+        int rows = table.records.size() / table.fields_size;
+        int cols = table.fields_size;
+        // Get the rows we want to delete (always sorted based on implementation)
+        auto rowsToDelete = ProtoGenerator::getWhereRows(table, where);
+        // Quick algorithm to delete all the right rows in the organized array
+        // Delete from the back so values dont change as we iterate
+        for (auto rowToDelete = rowsToDelete.rbegin(); rowToDelete != rowsToDelete.rend(); rowToDelete++) {
+          int from = *rowToDelete * cols;
+          int to = from + cols;
+          table.records.erase(table.records.begin() + from, table.records.begin() + to);
+        }
+        ProtoGenerator pg(&db);
+        return db;
+      }
+    }
+    return DatabaseObject("nil");
+  }
+
+  /**
+   * @brief prints table records based on a variety of constraints
+   * 
+   * The fields are scanned to determine the column of the filter and where constraints
+   *
+   * @param db_name the database name
+   * @param tbl_name the table name
+   * @param where [default: nullptr]] (column_name operator value) to test for when printing values
+   * @return DatabaseObject updated database object
+   */
+  static DatabaseObject updateTBL (std::string db_name,
+                         std::string tbl_name,
+                         std::unordered_map<std::string, std::string> what,
+                         std::tuple<std::string, std::string, std::string> *where = nullptr)
+  {
+    DatabaseObject db = loadDB(db_name);
+    for (auto &table : db.tables) {
+      if (table.name() == tbl_name) {
+        int rows = table.records.size() / table.fields_size;
+        int cols = table.fields_size;
+        // Find all the rows found by query and map to an associative array
+        std::vector<bool> acceptedRows(rows, false);
+        for(auto row : ProtoGenerator::getWhereRows(table, where)) {
+          acceptedRows[row] = true;
+        }
+        // Go through every row/col and if it's an acceptedRow change its values
+        std::string tableFormat = table.getFormat();
+        auto record_iter = table.records.begin();
+        for (int row = 0; row != rows; row++) {
+          for (int col = 0; col != cols; col++) {
+            if (acceptedRows[row] && what.find(table.fields[col].first) != what.end()) {
+              if (tableFormat[col] == 's') {
+                *record_iter = what[table.fields[col].first];
+              } else if (tableFormat[col] == 'i') {
+                *record_iter = std::stoi(what[table.fields[col].first]);
+              } else if (tableFormat[col] == 'f') {
+                *record_iter = std::stoi(what[table.fields[col].first]);
+              }
+            }
+            record_iter++;
+          }
+        }
+        // Memory instance updated, now apply to file and update current_database
+        ProtoGenerator pg(&db);
+        return db;
+      }
+    }
+    return DatabaseObject("nil");
+  }
+
   /**
    * @brief prints table fields and records based on a variety of constraints
+   * 
+   * The fields are scanned to determine the column of the filter and where constraints
    *
    * @param db_name the database name
    * @param tbl_name the table name
@@ -155,7 +360,10 @@ public:
    * @param where [default: nullptr]] (column_name operator value) to test for when printing values
    * @return std::string
    */
-  static std::string printTBL(std::string db_name, std::string tbl_name, std::vector<std::string> *filter = nullptr, std::tuple<std::string, std::string, std::string> *where = nullptr)
+  static std::string printTBL(std::string db_name, 
+                              std::string tbl_name, 
+                              std::vector<std::string> *filter = nullptr, 
+                              std::tuple<std::string, std::string, std::string> *where = nullptr)
   {
     DatabaseObject db = loadDB(db_name);
     for (int i = 0; i < db.tables.size(); i++)
@@ -165,64 +373,84 @@ public:
         fieldmapType fields = db.tables[i].fields;
         std::ostringstream ss;
         ss << "| ";
-        std::vector<int> skipCols = {};
+        std::vector<bool> skipCols(db.tables[i].fields_size, true);
+
+        // If query contains asterisk or is null, then don't filter
+        bool filtered = true;
+        if (filter == nullptr) {
+          filtered = false;
+        } else {
+          for (auto query : *filter) {
+            if (query == "*") {
+              filtered = false;
+            }
+          }
+        }
+
         int col = 0;
         for (auto i = fields.begin(); i != fields.end(); i++)
         {
           auto name = i->first;
           auto field = i->second;
           if (filter != nullptr) {
-            for (auto f : *filter) {
-              if (name == f) {
+            for (auto q : *filter) {
+              if (name == q) {
                 ss << name << " " << get<0>(field);
                 ss << (get<1>(field) > 1 ? ("(" + to_string(get<1>(field)) + ")") : "");
                 ss << " | ";
-              }
-              else {
-                skipCols.push_back(col);
+                skipCols[col] = false;
               }
             }
-          } else { // Print all fields
+          }
+          else // add all
+          {
             ss << name << " " << get<0>(field);
             ss << (get<1>(field) > 1 ? ("(" + to_string(get<1>(field)) + ")") : "");
             ss << " | ";
           }
+
+
           col++;
         }
         ss << "\n";
 
         int rows = db.tables[i].records.size() / db.tables[i].fields_size;
+        vector<bool> acceptRows(rows, false);
+        for(auto row : getWhereRows(db.tables[i], where)) {
+          acceptRows[row] = true;
+        }
         int cols = db.tables[i].fields_size;
         auto record_iter = db.tables[i].records.begin();
-        for (int j = 0; j < rows; j++)
+        // Print if it meets constraints
+        for (int row = 0; row < rows; row++)
         {
-          ss << "| ";
-          for (int i = 0; i < cols; i++)
+          if (acceptRows[row]) {
+            ss << "| ";
+          }
+          for (int col = 0; col < cols; col++)
           {
-            if (auto val = std::get_if<std::string>(&(*record_iter)))
-            {
-              ss << *val;
-            }
-            else if (auto val = std::get_if<int>(&(*record_iter)))
-            {
-              ss << *val;
-            }
-            else if (auto val = std::get_if<double>(&(*record_iter)))
-            {
-              ss << *val;
-            }
-            if (i != cols - 1)
-            {
-              ss << " | ";
+            if (acceptRows[row] && (!filtered || !skipCols[col])) {
+              if (auto val = std::get_if<std::string>(&(*record_iter)))
+              {
+                ss << *val << " | ";
+              }
+              else if (auto val = std::get_if<int>(&(*record_iter)))
+              {
+                ss << *val << " | ";
+              }
+              else if (auto val = std::get_if<double>(&(*record_iter)))
+              {
+                ss << *val << " | ";
+              }
             }
             record_iter++;
           }
-          ss << " |\n";
+          ss << "\n";
         }
         return ss.str();
       }
     }
-    return "!Failed to query tbl_1 because it does not exist.";
+    return "!Failed to query table because it does not exist.";
   }
 
   // add a field to an existing table
@@ -312,9 +540,10 @@ public:
       std::string format = tbl.getFormat();
 
       // Read in row
+      //db_file >> count;
       while (!db_file.eof())
       {
-        for (int i = 0; i < size - 1; i++)
+        for (int i = 0; i < size; i++)
         {
           db_file >> count;
           if (format[i] == 's')
@@ -341,29 +570,6 @@ public:
             char type[1] = {format[i]};
             tbl.addRecord(type, std::stoi(&count[0]));
           }
-        }
-        db_file >> count;
-        if (format[size - 1] == 's')
-        {
-          std::string fullString = count;
-          while (count[count.size() - 2] != '\'')
-          {
-            db_file >> count;
-            fullString += count;
-          }
-          // std::cout << "Text[End]: " << fullString << std::endl;
-          char type[1] = {format[size - 1]};
-          tbl.addRecord(type, fullString.substr(1, fullString.size() - 3).c_str());
-        }
-        else if (format[size - 1] == 'f')
-        {
-          char type[1] = {format[size - 1]};
-          tbl.addRecord(type, std::stod(&count[0]));
-        }
-        else if (format[size - 1] == 'i')
-        {
-          char type[1] = {format[size - 1]};
-          tbl.addRecord(type, std::stoi(&count[0]));
         }
       }
 

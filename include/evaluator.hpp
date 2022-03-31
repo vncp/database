@@ -21,7 +21,7 @@
 object::Object *eval(ast::Node *node, DatabaseObject *current_database);
 
 // Fieldname , <Type, Count>
-using fieldmapType = std::list<std::pair<std::string, std::tuple<std::string, int>>>;
+using fieldmapType = std::vector<std::pair<std::string, std::tuple<std::string, int>>>;
 
 // Evaluate column definition expression node and create a fieldMapType from it
 fieldmapType evalFields(ast::ColumnDefinitionExpression *node)
