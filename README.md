@@ -6,9 +6,13 @@ Vincent Pham
 ```
 cmake -S . -B build && cmake --build build && ./build/sql_test
 ```
-## Running
+## Running PA2 Test Script
 ```
 cat ./PA2_test.sql | ./build/main
+```
+## Running Interpreter
+```
+./build/main
 ```
 An install script of for protobuffers is included, but not yet needed for testing.
 
