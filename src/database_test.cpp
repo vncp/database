@@ -206,7 +206,7 @@ TEST(ParserTest, ColumnDefinitions)
 
 TEST(ParserTest, ColumnLiterals)
 {
-  std::string test = "INSERT INTO tbl_1 VALUES(17, 'Bob');";
+  std::string test = "INSERT INTO tbl_1 VALUES(17, 'Bob', 19.99);";
   Lexer lexer(test);
   SQLParser parser(&lexer);
   ast::Program *program = parser.parseSql();
@@ -223,6 +223,10 @@ TEST(ParserTest, ColumnLiterals)
   EXPECT_EQ(expression->tokenLiteral(), "Bob");
   EXPECT_EQ(expression->token.literal, "Bob");
   EXPECT_EQ(expression->token_vartype.literal, "IDENTIFIER");
+  expression = expression->right;
+  EXPECT_EQ(expression->tokenLiteral(), "19.99");
+  EXPECT_EQ(expression->token.literal, "19.99");
+  EXPECT_EQ(expression->token_vartype.literal, "FLOAT");
 }
 
 TEST(ParserTest, UpdateStatement_WhereExpressions_ColumnValueExpressions){

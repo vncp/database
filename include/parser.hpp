@@ -323,6 +323,7 @@ public:
     if (peekToken.type == token_type::SEMICOLON) {
       nextToken();
       nextToken();
+      statement->query = static_cast<ast::WhereExpression *>(nullptr);
       return statement;
     } else if (peekToken.type == token_type::WHERE) {
       nextToken();
@@ -576,7 +577,6 @@ public:
     }
     nextToken();
     statement->column_list = parseColumnLiteral();
-    nextToken();
     // )
     if (currToken.type != token_type::RPAREN)
     {
@@ -690,6 +690,7 @@ public:
       {
         throw expected_token_error(currToken.literal, "'");
       }
+      nextToken();
     }
 
     // If we see a comma next then parse another column literal otherwise make it null
@@ -760,9 +761,14 @@ public:
     {
       throw expected_token_error(currToken.literal, "=");
     }
-    expr->value = currToken;
-    if (peekToken.type == token_type::COMMA) {
+    if (currToken.type == token_type::QUOTE) {
       nextToken();
+    }
+    expr->value = currToken;
+    if (peekToken.type == token_type::QUOTE) {
+      nextToken();
+    }
+    if (peekToken.type == token_type::COMMA) {
       nextToken();
       expr->right = parseColumnValueExpression();
       return expr;

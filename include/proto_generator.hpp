@@ -17,6 +17,7 @@
 #include <fstream>
 #include <experimental/filesystem>
 #include <data_objs.hpp>
+#include <variant>
 
 namespace fs = std::experimental::filesystem;
 // Fieldname , <Type, Count, fieldNum, sqlType>
@@ -78,22 +79,32 @@ class ProtoGenerator
     protoFile << "}\n\n";
 
     // Write data
-    for (auto record : table.records) {
-      if (auto val = std::get_if<std::string>(&record))
-      {
-        protoFile << "'" << *val << "'";
-      }
-      else if (auto val = std::get_if<int>(&record))
-      {
-        protoFile << *val;
-      }
-      else if (auto val = std::get_if<double>(&record))
-      {
-        protoFile << *val;
-      }
+    int cols = table.fields.size();
+    int rows = table.records.size() / cols;
+    auto record_iter = table.records.begin();
+    for (int row = 0; row < rows; row++) {
       protoFile << "\n";
-    }
+      for (int col = 0; col < cols; col++) {
+        if (auto val = std::get_if<std::string>(&(*record_iter)))
+        {
+          protoFile << "'" << *val << "'";
+        }
+        else if (auto val = std::get_if<int>(&(*record_iter)))
+        {
+          protoFile << *val;
+        }
+        else if (auto val = std::get_if<double>(&(*record_iter)))
+        {
+          protoFile << *val;
+        }
 
+        if (col != cols - 1) {
+          protoFile << ", ";
+        }
+        record_iter++;
+      }
+    }
+    
     protoFile.flush();
     protoFile.close();
   }
@@ -110,7 +121,7 @@ class ProtoGenerator
   }
 
   /**
-   * @brief Get rows to print
+   * @brief Get rows described by the where expression
    * 
    * @param tbl The table to look through
    * @param where the filter query for where expr
@@ -128,6 +139,7 @@ class ProtoGenerator
       if (where != nullptr && rec->first == get<0>(*where)) {
         whereCol = col;
       }
+      col++;
     }
 
     // Filter out rows described by where
@@ -159,7 +171,10 @@ class ProtoGenerator
                 } catch (const std::invalid_argument &ia) {}
               } else if (auto val = std::get_if<double>(&(*record_iter))) {
                 try {
-                  if (*val == std::stod(test)) rowCheck = true;
+                  double test_d = std::stod(test);
+                  double min = test_d - 0.00001;
+                  double max = test_d + 0.00001;
+                  if (*val > min && *val < max) rowCheck = true;
                 } catch (const std::invalid_argument &ia) {}
               }
             } else if (std::get<1>(*where) == "!=") {
@@ -171,7 +186,10 @@ class ProtoGenerator
                 } catch (const std::invalid_argument &ia) {}
               } else if (auto val = std::get_if<double>(&(*record_iter))) {
                 try {
-                  if (*val != std::stod(test)) rowCheck = true;
+                  double test_d = std::stod(test);
+                  double min = test_d - 0.00001;
+                  double max = test_d + 0.00001;
+                  if (*val <= min || *val >= max) rowCheck = true;
                 } catch (const std::invalid_argument &ia) {}
               }
             } else if (std::get<1>(*where) == "<") {
@@ -276,7 +294,9 @@ public:
 
   static DatabaseObject deleteTBL (std::string db_name,
                                    std::string tbl_name,
+                                   int *delete_count,
                                    std::tuple<std::string, std::string, std::string> * where = nullptr)
+                                   
   {
     DatabaseObject db = loadDB(db_name);
     for (auto &table : db.tables) {
@@ -285,6 +305,7 @@ public:
         int cols = table.fields_size;
         // Get the rows we want to delete (always sorted based on implementation)
         auto rowsToDelete = ProtoGenerator::getWhereRows(table, where);
+        *delete_count = rowsToDelete.size();
         // Quick algorithm to delete all the right rows in the organized array
         // Delete from the back so values dont change as we iterate
         for (auto rowToDelete = rowsToDelete.rbegin(); rowToDelete != rowsToDelete.rend(); rowToDelete++) {
@@ -296,11 +317,45 @@ public:
         return db;
       }
     }
+    *delete_count = 0;
     return DatabaseObject("nil");
   }
 
   /**
-   * @brief prints table records based on a variety of constraints
+   * @brief Inserts records into table
+   * 
+   * @param db_name Name of the database
+   * @param tbl_name Name of the table
+   * @param values Values in a type-safe union (std::variant)
+   * @param format Format of the fields for type casting
+   * @return DatabaseObject 
+   */
+  static DatabaseObject insertTBL(std::string db_name,
+                                  std::string tbl_name,
+                                  std::vector<std::variant<int, bool, std::string, double>> values,
+                                  std::string format = "") 
+  {
+   DatabaseObject db = loadDB(db_name);
+   for (auto &table : db.tables) {
+      if (table.name() == tbl_name) {
+        for(const auto &record : values) {
+          if(auto value = std::get_if<std::string>(&record)) {
+            table.addRecord("s", value->c_str());
+          } else if (auto value = std::get_if<int>(&record)) {
+            table.addRecord("i", *value);
+          } else if (auto value = std::get_if<double>(&record)) {
+            table.addRecord("f", *value);
+          }
+        }
+        ProtoGenerator pg(&db);
+        return db;
+      }
+    } 
+    return DatabaseObject("nil");
+  }
+
+  /**
+   * @brief update table records based on a variety of constraints
    * 
    * The fields are scanned to determine the column of the filter and where constraints
    *
@@ -309,10 +364,11 @@ public:
    * @param where [default: nullptr]] (column_name operator value) to test for when printing values
    * @return DatabaseObject updated database object
    */
-  static DatabaseObject updateTBL (std::string db_name,
-                         std::string tbl_name,
-                         std::unordered_map<std::string, std::string> what,
-                         std::tuple<std::string, std::string, std::string> *where = nullptr)
+  static DatabaseObject updateTBL(std::string db_name,
+                                  std::string tbl_name,
+                                  std::unordered_map<std::string, std::string> what,
+                                  int *update_count,
+                                  std::tuple<std::string, std::string, std::string> *where = nullptr)
   {
     DatabaseObject db = loadDB(db_name);
     for (auto &table : db.tables) {
@@ -321,7 +377,9 @@ public:
         int cols = table.fields_size;
         // Find all the rows found by query and map to an associative array
         std::vector<bool> acceptedRows(rows, false);
-        for(auto row : ProtoGenerator::getWhereRows(table, where)) {
+        auto whereRows = ProtoGenerator::getWhereRows(table, where);
+        *update_count = whereRows.size();
+        for(auto row : whereRows) {
           acceptedRows[row] = true;
         }
         // Go through every row/col and if it's an acceptedRow change its values
@@ -335,7 +393,7 @@ public:
               } else if (tableFormat[col] == 'i') {
                 *record_iter = std::stoi(what[table.fields[col].first]);
               } else if (tableFormat[col] == 'f') {
-                *record_iter = std::stoi(what[table.fields[col].first]);
+                *record_iter = std::stod(what[table.fields[col].first]);
               }
             }
             record_iter++;
@@ -346,6 +404,7 @@ public:
         return db;
       }
     }
+    *update_count = 0;
     return DatabaseObject("nil");
   }
 
@@ -445,7 +504,9 @@ public:
             }
             record_iter++;
           }
-          ss << "\n";
+          if (acceptRows[row]) {
+            ss << "\n";
+          }
         }
         return ss.str();
       }
@@ -474,11 +535,11 @@ public:
   static bool deleteDB(std::string db_name)
   {
     fs::remove_all(DATA_PATH / db_name);
-    return !fs::remove(DATA_PATH);
+    return !fs::remove(DATA_PATH / db_name);
   }
 
   // Deletes a specific table from the database's path
-  static bool deleteTBL(std::string db_name, std::string tbl_name)
+  static bool dropTBL(std::string db_name, std::string tbl_name)
   {
     return !fs::remove(DATA_PATH / db_name / (tbl_name + ".proto"));
   }
@@ -534,18 +595,17 @@ public:
         next = count;
         db_file >> count;
       }
+      db_file >> count;
 
       // Now get the format and read in the data
       int size = tbl.fields.size();
       std::string format = tbl.getFormat();
-
       // Read in row
       //db_file >> count;
       while (!db_file.eof())
       {
         for (int i = 0; i < size; i++)
         {
-          db_file >> count;
           if (format[i] == 's')
           {
             std::string fullString = count;
@@ -570,6 +630,7 @@ public:
             char type[1] = {format[i]};
             tbl.addRecord(type, std::stoi(&count[0]));
           }
+          db_file >> count;
         }
       }
 
