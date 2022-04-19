@@ -335,10 +335,21 @@ public:
       }
       nextToken();
       return statement;
+    } else if (peekToken.type == token_type::LEFT ||
+               peekToken.type == token_type::RIGHT ||
+               peekToken.type == token_type::INNER ||
+               peekToken.type == token_type::OUTER)
+    {
+      nextToken();
+      statement->parseJoinExpression();
+      nextToken();
+      if (currToken.type != token_type::SEMICOLON) {
+        throw expected_token_error(currToken.type, ";");
+      }
     }
     else
     {
-      throw expected_token_error(currToken.type, "WHERE OR ;");
+      throw expected_token_error(currToken.type, "WHERE, INNER, OUTER, LEFT, RIGHT, OR ;");
     }
   }
 

@@ -71,11 +71,21 @@ namespace token_type
   const TokenType MINUS = "-";
   const TokenType SLASH = "/";
   const TokenType ASTERISK = "*";
+  
+  // JOINS
+  const TokenType LEFT = "LEFT";
+  const TokenType RIGHT = "RIGHT";
+  const TokenType INNER = "INNER";
+  const TokenType OUTER = "OUTER";
 
   const TokenType COMMAND = ".";
   const TokenType EXIT_CMD = "EXIT";
 
   std::unordered_map<std::string, TokenType> keyword = {
+      {"INNER", INNER},
+      {"OUTER", OUTER},
+      {"LEFT", LEFT},
+      {"RIGHT", RIGHT},
       {"TABLE", TABLE},
       {"DATABASE", DATABASE},
       {"CREATE", CREATE},
