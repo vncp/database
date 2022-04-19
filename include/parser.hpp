@@ -318,13 +318,13 @@ public:
     if (currToken.type != token_type::IDENTIFIER) {
       throw expected_token_error(currToken.type, "IDENTIFIER");
     }
-    statement->name = new ast::Identifier{currToken, currToken.literal};
+    // Change to parseIdentifierList
+    //statement->name = new ast::Identifier{currToken, currToken.literal};
+    statement->names = parseTableIdentifierList();
 
     if (peekToken.type == token_type::SEMICOLON) {
       nextToken();
-      nextToken();
       statement->query = static_cast<ast::WhereExpression *>(nullptr);
-      return statement;
     } else if (peekToken.type == token_type::WHERE) {
       nextToken();
       nextToken();
@@ -334,14 +334,13 @@ public:
         throw expected_token_error(currToken.type, ";");
       }
       nextToken();
-      return statement;
     } else if (peekToken.type == token_type::LEFT ||
                peekToken.type == token_type::RIGHT ||
-               peekToken.type == token_type::INNER ||
-               peekToken.type == token_type::OUTER)
+               peekToken.type == token_type::INNER)
     {
+
       nextToken();
-      statement->parseJoinExpression();
+      statement->join_expr = parseJoinExpression();
       nextToken();
       if (currToken.type != token_type::SEMICOLON) {
         throw expected_token_error(currToken.type, ";");
@@ -351,7 +350,20 @@ public:
     {
       throw expected_token_error(currToken.type, "WHERE, INNER, OUTER, LEFT, RIGHT, OR ;");
     }
+    return statement;
   }
+  /*
+  ast::TableJoinExpression *parseJoinExpression() {
+    ast::TableJoinExpression *expr;
+    if (currToken.type == token_type::INNER) {
+      
+    } else if (currToken.type == token_type::LEFT) {
+
+    } else if (currToken.type == token_type::RIGHT) {
+
+    }
+  }
+  */
 
   ast::ColumnQueryExpression *parseQueryExpression() {
     if (currToken.type == token_type::ASTERISK) {
@@ -758,6 +770,35 @@ public:
     return expr;
   }
 
+  ast::TableIdentifierList *parseTableIdentifierList() {
+    if (currToken.type != token_type::IDENTIFIER) {
+      throw expected_token_error(currToken.literal, "{IDENTIFIER} (Table name)");
+    }
+    ast::TableIdentifierList *expr = new ast::TableIdentifierList{currToken};
+    // If single identifer quit with alias null
+    if (peekToken.type != token_type::IDENTIFIER) {
+      return expr;
+    }
+    nextToken();
+    if (currToken.type != token_type::IDENTIFIER) {
+      throw expected_token_error(currToken.literal, "{IDENTIFIER} (Table alias)");
+    }
+    // Alias
+    expr->alias = new Token(currToken);
+    if (peekToken.type == token_type::COMMA) {
+      nextToken();
+      nextToken();
+      expr->right = parseTableIdentifierList();
+      return expr;
+    } else if (peekToken.type != token_type::WHERE && peekToken.type != token_type::INNER &&
+               peekToken.type != token_type::LEFT && peekToken.type != token_type::RIGHT && peekToken.type != token_type::SEMICOLON) {
+      throw expected_token_error(peekToken.type, "{QUERY-EXPR, JOIN-EXPR}");
+    } else {
+      expr->right = static_cast<ast::TableIdentifierList *>(nullptr);
+      return expr;
+    }
+  }
+
   ast::ColumnValueExpression *parseColumnValueExpression()
   {
     if (currToken.type != token_type::IDENTIFIER) {
@@ -793,11 +834,71 @@ public:
     }
   }
 
+  /**
+   * @brief parses a join expression starting after the first identifier/alias
+   * 
+   * @return ast::JoinExpression* 
+   */
+  ast::JoinExpression *parseJoinExpression() {
+    ast::JoinExpression *expr;
+    // If Outer join
+    if ((currToken.type == token_type::LEFT || currToken.type == token_type::RIGHT)
+        && peekToken.type == token_type::OUTER) {
+      expr = new ast::JoinExpression(peekToken);
+      if (expr->token.type != token_type::OUTER) {
+        throw expected_token_error(peekToken.literal, "OUTER");
+      }
+      expr->include = new Token(currToken);
+      nextToken();
+      nextToken();
+      if (currToken.type != token_type::JOIN) {
+        throw expected_token_error(currToken.literal, "JOIN");
+      }
+      nextToken();
+    } else if (currToken.type == token_type::INNER) {
+      expr = new ast::JoinExpression(currToken);
+      nextToken();
+      if (currToken.type != token_type::JOIN) {
+        throw expected_token_error(currToken.literal, "JOIN");
+      }
+      nextToken();
+    } else {
+      throw expected_token_error(currToken.literal, "INNER, LEFT OUTER, or RIGHT OUTER");
+    }
+    if (currToken.type != token_type::IDENTIFIER) {
+      throw expected_token_error(currToken.literal, "{IDENTIFIER}");
+    }
+    // RHS Ident
+    expr->join_ident = new Token(currToken);
+    nextToken();
+    if (currToken.type != token_type::IDENTIFIER) {
+      throw expected_token_error(currToken.literal, "{IDENTIFIER}");
+    }
+    // RHS Alias
+    expr->join_alias = new Token(currToken);
+    nextToken();
+    if (currToken.type != token_type::ON) {
+      throw expected_token_error(currToken.literal, "ON");
+    }
+    nextToken();
+    expr->where = parseWhereExpression();
+    return expr;
+  }
+
   ast::WhereExpression *parseWhereExpression() {
     if (currToken.type != token_type::IDENTIFIER) {
       throw expected_token_error(currToken.literal, "{IDENTIFIER}");
     } 
     ast::WhereExpression *expr = new ast::WhereExpression{currToken};
+    if (peekToken.type == token_type::COMMAND) {
+      nextToken();
+      nextToken();
+    }
+    if (currToken.type != token_type::IDENTIFIER) {
+      throw expected_token_error(currToken.literal, "{IDENTIFIER}");
+    }
+    expr->token_alias = new Token(currToken);
+
 
     nextToken();
     if (currToken.type == token_type::EQ ||
@@ -829,6 +930,19 @@ public:
     }
     else if (currToken.type == token_type::FLOAT || currToken.type == token_type::INT) {
       expr->value = currToken; 
+    }
+    else if (currToken.type == token_type::IDENTIFIER) {
+      expr->value = currToken;
+      if (peekToken.type == token_type::COMMAND) {
+        nextToken();
+        nextToken();
+      } else {
+        throw expected_token_error(currToken.literal, ".");
+      }
+      if (currToken.type != token_type::IDENTIFIER) {
+        throw expected_token_error(currToken.literal, "{IDENTIFIER}");
+      }
+      expr->value_alias = new Token(currToken);
     }
     else {
       throw expected_token_error(currToken.literal, "string, int, or float");

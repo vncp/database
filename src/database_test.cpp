@@ -299,7 +299,7 @@ TEST(ParserTest, SelectStatement_ColumnUnion)
   ASSERT_EQ(program->statements.size(), 1);
 
   ast::SelectTableStatement *statement = dynamic_cast<ast::SelectTableStatement *>(program->statements[0]);
-  ast::Identifier *table_name = statement->name;
+  ast::TableIdentifierList *table_name = statement->names;
   ast::ColumnQueryExpression *column_query = statement->column_query;
 
   EXPECT_EQ(statement->token.literal, "SELECT");
@@ -320,7 +320,7 @@ TEST(ParserTest, SelectStatement_SingleColumn)
   ASSERT_EQ(program->statements.size(), 1);
 
   ast::SelectTableStatement *statement = dynamic_cast<ast::SelectTableStatement *>(program->statements[0]);
-  ast::Identifier *table_name = statement->name;
+  ast::TableIdentifierList *table_name = statement->names;
   ast::ColumnQueryExpression *column_query = statement->column_query;
 
   EXPECT_EQ(statement->token.literal, "SELECT");
@@ -339,7 +339,7 @@ TEST(ParserTest, SelectStatement_Asterisk)
   ASSERT_EQ(program->statements.size(), 1);
 
   ast::SelectTableStatement *statement = dynamic_cast<ast::SelectTableStatement *>(program->statements[0]);
-  ast::Identifier *table_name = statement->name;
+  ast::TableIdentifierList *table_name = statement->names;
   ast::ColumnQueryExpression *column_query = statement->column_query;
 
   EXPECT_EQ(statement->token.literal, "SELECT");
@@ -348,6 +348,124 @@ TEST(ParserTest, SelectStatement_Asterisk)
   EXPECT_EQ(column_query->token.type, token_type::ASTERISK);
   EXPECT_EQ(column_query->right, nullptr);
 }
+
+TEST(ParserTest, SelectStatement_MultiTable) {
+  std::string test = "SELECT * FROM product P, clients C;";
+  Lexer lexer(test);
+  SQLParser parser(&lexer);
+  ast::Program *program = parser.parseSql();
+  ASSERT_NE(program, nullptr);
+  ASSERT_EQ(program->statements.size(), 1);
+
+  ast::SelectTableStatement *statement = dynamic_cast<ast::SelectTableStatement *>(program->statements[0]);
+  ast::TableIdentifierList *table_name = statement->names;
+  ast::ColumnQueryExpression *column_query = statement->column_query;
+
+  EXPECT_EQ(statement->token.literal, "SELECT");
+  EXPECT_EQ(table_name->token.literal, "product");
+  EXPECT_EQ(table_name->alias->literal, "P");
+  table_name = table_name->right;
+  EXPECT_EQ(table_name->token.literal, "clients");
+  EXPECT_EQ(table_name->alias->literal, "C");
+  EXPECT_EQ(table_name->right, nullptr);
+  EXPECT_EQ(column_query->token.literal, "*");
+  EXPECT_EQ(column_query->token.type, token_type::ASTERISK);
+  EXPECT_EQ(column_query->right, nullptr);
+}
+
+TEST(ParserTest, SelectStatement_MultiTable_Where) {
+  std::string test = "SELECT * FROM product P, clients C WHERE P.id = C.id;";
+  Lexer lexer(test);
+  SQLParser parser(&lexer);
+  ast::Program *program = parser.parseSql();
+  ASSERT_NE(program, nullptr);
+  ASSERT_EQ(program->statements.size(), 1);
+
+  ast::SelectTableStatement *statement = dynamic_cast<ast::SelectTableStatement *>(program->statements[0]);
+  ast::TableIdentifierList *table_name = statement->names;
+  ast::ColumnQueryExpression *column_query = statement->column_query;
+  ast::WhereExpression *query = statement->query;
+
+  EXPECT_EQ(statement->token.literal, "SELECT");
+  EXPECT_EQ(table_name->token.literal, "product");
+  EXPECT_EQ(table_name->alias->literal, "P");
+  table_name = table_name->right;
+  EXPECT_EQ(table_name->token.literal, "clients");
+  EXPECT_EQ(table_name->alias->literal, "C");
+  EXPECT_EQ(table_name->right, nullptr);
+  EXPECT_EQ(column_query->token.literal, "*");
+  EXPECT_EQ(column_query->token.type, token_type::ASTERISK);
+  EXPECT_EQ(column_query->right, nullptr);
+  EXPECT_EQ(query->token.literal, "P");
+  EXPECT_EQ(query->token_alias->literal, "id");
+  EXPECT_EQ(query->op.literal, "=");
+  EXPECT_EQ(query->value.literal, "C");
+  EXPECT_EQ(query->value_alias->literal, "id");
+}
+
+TEST(ParserTest, SelectStatement_InnerJoin) {
+  std::string test = "SELECT * FROM Employee E inner join Sales S on E.id = S.employeeID;";
+  Lexer lexer(test);
+  SQLParser parser(&lexer);
+  ast::Program *program = parser.parseSql();
+  ASSERT_NE(program, nullptr);
+  ASSERT_EQ(program->statements.size(), 1);
+
+  ast::SelectTableStatement *statement = dynamic_cast<ast::SelectTableStatement *>(program->statements[0]);
+  ast::TableIdentifierList *table_name = statement->names;
+  ast::ColumnQueryExpression *column_query = statement->column_query;
+  ast::JoinExpression *join_expr = statement->join_expr;
+  ast::WhereExpression *query = join_expr->where;
+  
+  EXPECT_EQ(statement->token.literal, "SELECT");
+  EXPECT_EQ(column_query->token.literal, "*");
+
+  EXPECT_EQ(table_name->token.literal, "Employee");
+  EXPECT_EQ(table_name->alias->literal, "E");
+  
+  EXPECT_EQ(join_expr->token.literal, "inner");
+  EXPECT_EQ(join_expr->join_ident->literal, "Sales");
+  EXPECT_EQ(join_expr->join_alias->literal, "S");
+
+  EXPECT_EQ(query->token.literal, "E");
+  EXPECT_EQ(query->token_alias->literal, "id");
+  EXPECT_EQ(query->op.literal, "=");
+  EXPECT_EQ(query->value.literal, "S");
+  EXPECT_EQ(query->value_alias->literal, "employeeID");
+}
+
+TEST(ParserTest, SelectStatement_OuterJoin) {
+  std::string test = "SELECT * FROM Employee E left outer join Sales S on E.id = S.employeeID;";
+  Lexer lexer(test);
+  SQLParser parser(&lexer);
+  ast::Program *program = parser.parseSql();
+  ASSERT_NE(program, nullptr);
+  ASSERT_EQ(program->statements.size(), 1);
+
+  ast::SelectTableStatement *statement = dynamic_cast<ast::SelectTableStatement *>(program->statements[0]);
+  ast::TableIdentifierList *table_name = statement->names;
+  ast::ColumnQueryExpression *column_query = statement->column_query;
+  ast::JoinExpression *join_expr = statement->join_expr;
+  ast::WhereExpression *query = join_expr->where;
+  
+  EXPECT_EQ(statement->token.literal, "SELECT");
+  EXPECT_EQ(column_query->token.literal, "*");
+
+  EXPECT_EQ(table_name->token.literal, "Employee");
+  EXPECT_EQ(table_name->alias->literal, "E");
+  
+  EXPECT_EQ(join_expr->token.literal, "outer");
+  EXPECT_EQ(join_expr->include->literal, "left");
+  EXPECT_EQ(join_expr->join_ident->literal, "Sales");
+  EXPECT_EQ(join_expr->join_alias->literal, "S");
+
+  EXPECT_EQ(query->token.literal, "E");
+  EXPECT_EQ(query->token_alias->literal, "id");
+  EXPECT_EQ(query->op.literal, "=");
+  EXPECT_EQ(query->value.literal, "S");
+  EXPECT_EQ(query->value_alias->literal, "employeeID");
+}
+
 TEST(ParserTest, SelectStatement_WhereExpression)
 {
   std::string test = "SELECT name FROM product WHERE x = 1;";
@@ -358,7 +476,7 @@ TEST(ParserTest, SelectStatement_WhereExpression)
   ASSERT_EQ(program->statements.size(), 1);
 
   ast::SelectTableStatement *statement = dynamic_cast<ast::SelectTableStatement *>(program->statements[0]);
-  ast::Identifier *table_name = statement->name;
+  ast::TableIdentifierList *table_name = statement->names;
   ast::ColumnQueryExpression *column_query = statement->column_query;
   ast::WhereExpression *query = statement->query;
 

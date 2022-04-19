@@ -162,7 +162,7 @@ std::unordered_map<std::string, evalFnType> evalStatementFns = {
         where_ptr = &where_tpl;
       }
 
-      cout << ProtoGenerator::printTBL(current_database->name(), std::string(*node_->name), filter_ptr, where_ptr) << endl;
+      cout << ProtoGenerator::printTBL(current_database->name(), std::string(*node_->names), filter_ptr, where_ptr) << endl;
       return new object::Integer(7); })},
     /**
      * @brief Connects AST nodes on INSERT statement to run insertTBL statement

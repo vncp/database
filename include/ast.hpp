@@ -246,6 +246,8 @@ namespace ast
   struct WhereExpression : public Expression 
   {
     Token value;
+    Token *value_alias = nullptr;
+    Token *token_alias = nullptr;
     Token op;
 
     WhereExpression(Token token) : Expression(token) {}
@@ -264,6 +266,61 @@ namespace ast
     {
       ostringstream ss;
       ss << token.literal << " " << op.literal << " " << value.literal << std::endl;
+    }
+  };
+
+  /**
+   * @brief Gets identifier list with possible aliases
+   * name is saved into 'token'
+   * alias is saved into 'alias'
+   * the next values are saved into right as a linked list
+   */
+  struct TableIdentifierList : public Expression
+  {
+      Token *alias;
+      TableIdentifierList *right;
+
+      TableIdentifierList(Token token) : Expression(token)
+      {
+      }
+
+      string tokenLiteral() override
+      {
+        return token.literal;
+      }
+
+      operator string() override
+      {
+        ostringstream ss;
+        ss << token.literal << " : ";
+        if (alias != nullptr) {
+          ss << std::string(*alias);
+        }
+        if (right != nullptr) {
+          ss << ", " << std::string(*right);
+        }
+      }
+  };
+
+  struct JoinExpression : public Expression 
+  {
+    // (LEFT OR RIGHT)
+    Token *include;
+    Token *join_ident;
+    Token *join_alias;
+    WhereExpression *where;
+    
+    JoinExpression(Token token) : Expression(token) {}
+
+    string tokenLiteral() override
+    {
+      return token.literal;
+    }
+
+    operator string() override
+    {
+      ostringstream ss;
+      return ss.str();
     }
   };
 
@@ -437,9 +494,10 @@ namespace ast
 
   struct SelectTableStatement : public Statement
   {
-    Identifier *name;
+    TableIdentifierList *names;
     ColumnQueryExpression *column_query;
-    WhereExpression *query;
+    JoinExpression *join_expr = nullptr;
+    WhereExpression *query = nullptr;
 
     SelectTableStatement(Token token) : Statement(token)
     {
@@ -455,10 +513,15 @@ namespace ast
       ostringstream ss;
       ss << "SELECT ";
       ss << std::string(*column_query) << " FROM TABLE ";
-      ss << std::string(*name);
-      if (query) {
-        ss << " WHERE";
-        ss << std::string(*query);
+      ss << std::string(*names);
+      if (join_expr) {
+        if (query)
+          ss << std::string(*query);
+      } else {
+        if (query) {
+          ss << " WHERE";
+          ss << std::string(*query);
+        }
       }
       ss << ";";
       return ss.str();

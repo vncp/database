@@ -60,6 +60,7 @@ namespace token_type
   const TokenType WHERE = "WHERE";
   const TokenType UPDATE = "UPDATE";
   const TokenType SET = "SET";
+  const TokenType ON = "ON";
 
   // Arithmetic
   const TokenType BANG = "!";
@@ -77,11 +78,13 @@ namespace token_type
   const TokenType RIGHT = "RIGHT";
   const TokenType INNER = "INNER";
   const TokenType OUTER = "OUTER";
+  const TokenType JOIN = "JOIN";
 
   const TokenType COMMAND = ".";
   const TokenType EXIT_CMD = "EXIT";
 
   std::unordered_map<std::string, TokenType> keyword = {
+      {"JOIN", JOIN},
       {"INNER", INNER},
       {"OUTER", OUTER},
       {"LEFT", LEFT},
@@ -101,7 +104,8 @@ namespace token_type
       {"DELETE", DELETE},
       {"WHERE", WHERE},
       {"UPDATE", UPDATE},
-      {"SET", SET}
+      {"SET", SET},
+      {"ON", ON}
   };
 
   std::unordered_map<std::string, TokenType> types = {
@@ -171,6 +175,11 @@ struct Token
   std::string literal;
 
   Token() {}
+
+  Token(const Token &right) {
+    type = right.type;
+    literal = right.literal;
+  }
 
   Token(token_type::TokenType type, char literal) : type(type),
                                                     literal(std::string(1, literal)) {}
