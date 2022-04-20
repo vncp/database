@@ -277,8 +277,8 @@ namespace ast
    */
   struct TableIdentifierList : public Expression
   {
-      Token *alias;
-      TableIdentifierList *right;
+      Token *alias = nullptr;
+      TableIdentifierList *right = nullptr;
 
       TableIdentifierList(Token token) : Expression(token)
       {
@@ -302,6 +302,10 @@ namespace ast
       }
   };
 
+  /**
+   * @brief token is full or inner
+   * remaining vars are trivial
+   */
   struct JoinExpression : public Expression 
   {
     // (LEFT OR RIGHT)
