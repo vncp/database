@@ -169,21 +169,22 @@ std::unordered_map<std::string, evalFnType> evalStatementFns = {
         cout << ProtoGenerator::printTBL(current_database->name(), names->token.literal, filter_ptr, where_ptr) << endl;
       } else { // multi alias where or single alias join
         // Load references of all variables and alias
-        std::unordered_map<std::string, std::string> var_table;
+        std::vector<std::pair<std::string, std::string>> var_table;
         std::array<bool, 3> joins{false, false, false}; 
         ast::TableIdentifierList *table_ident_ptr = names;
         while (table_ident_ptr != nullptr) {
           std::string ident = table_ident_ptr->token.literal;
           std::string alias = table_ident_ptr->alias->literal;
-          var_table[ident] = alias;
+          var_table.push_back(std::make_pair(ident, alias));
           table_ident_ptr = table_ident_ptr->right;
+          joins[1] = true;
         }
         // single alias join, only one ident-alias pair was added
         if (names->right == nullptr && node_->join_expr->token.type != token_type::INNER) {
           ast::JoinExpression *join_expr = node_->join_expr;
           std::string ident = join_expr->join_ident->literal;
           std::string alias = join_expr->join_alias->literal;
-          var_table[ident] = alias;
+          var_table.push_back(std::make_pair(ident, alias));
           joins[1] = true;
           if (join_expr->include->type == token_type::LEFT) joins[0] = true;
           if (join_expr->include->type == token_type::RIGHT) joins[2] = true;
@@ -191,18 +192,18 @@ std::unordered_map<std::string, evalFnType> evalStatementFns = {
           ast::JoinExpression *join_expr = node_->join_expr;
           std::string ident = join_expr->join_ident->literal;
           std::string alias = join_expr->join_alias->literal;
-          var_table[ident] = alias;
+          var_table.push_back(std::make_pair(ident, alias));
           joins[1] = true;
         }
-        // Get Where
-        ast::WhereExpression *where_query = node_->query;
+        // Get Where from Join or from statement
+        ast::WhereExpression *where_query = (node_->query == nullptr) ? node_->join_expr->where : node_->query;
         std::tuple<std::string, std::string, std::string> where_tpl;
         std::tuple<std::string, std::string, std::string> *where_ptr = nullptr;
         if (where_query != nullptr) {
           where_tpl = make_tuple(where_query->token_alias->literal, where_query->op.literal, where_query->value_alias->literal);
           where_ptr = &where_tpl;
         }
-        cout << ProtoGenerator::printTBLJoin(current_database->name(), where_ptr, var_table, joins) << std::endl;
+        std::cout << ProtoGenerator::printTBLJoin(current_database->name(), where_ptr, var_table, joins) << std::endl;
       }
       return new object::Integer(7); })},
     /**

@@ -18,10 +18,10 @@ insert into Sales values(2,544);
 select * from Employee E, Sales S where E.id = S.employeeID;
 
 -- This is the same as above but with a different syntax (3 points)
---select * from Employee E inner join Sales S on E.id = S.employeeID;
+select * from Employee E inner join Sales S on E.id = S.employeeID;
 
 -- The following will include Gill (5 points)
---select * from Employee E left outer join Sales S on E.id = S.employeeID;
+select * from Employee E left outer join Sales S on E.id = S.employeeID;
 
 .exit
 

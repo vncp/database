@@ -419,25 +419,32 @@ public:
    */
   static std::string printTBLJoin(std::string db_name,
                                   std::tuple<std::string, std::string, std::string> *where,
-                                  std::unordered_map<std::string, std::string> var_table,
+                                  std::vector<std::pair<std::string, std::string>> var_table,
                                   std::array<bool, 3> join_sections) {
     DatabaseObject db = loadDB(db_name);
     TableObject temp_tbl("_tempJoin");
     TableObject *tbl_left = nullptr;
     TableObject *tbl_right = nullptr;
     // populate the new table with fields of the old one
-
-    for (const auto &pair : var_table) {
-      for (int i = 0; i < db.tables.size(); i++)
+    // Left
+    for (int i = 0; i < db.tables.size(); i++)
+    {
+      if (db.tables[i].name() == var_table[0].first)
       {
-        if (db.tables[i].name() == pair.first)
-        {
-          if (tbl_left == nullptr) {
-            tbl_left = &(db.tables[i]);
-          } else {
-            tbl_right = &(db.tables[i]);
-          }
-          temp_tbl.fields.insert(temp_tbl.fields.begin(), db.tables[i].fields.begin(), db.tables[i].fields.end());
+        tbl_left = &(db.tables[i]);
+        for (const auto &field : db.tables[i].fields) {
+          temp_tbl.fields.push_back(field);
+        }
+      }
+    }
+    // Right
+    for (int i = 0; i < db.tables.size(); i++)
+    {
+      if (db.tables[i].name() == var_table[1].first)
+      {
+        tbl_right = &(db.tables[i]);
+        for (const auto &field : db.tables[i].fields) {
+          temp_tbl.fields.push_back(field);
         }
       }
     }
@@ -445,15 +452,22 @@ public:
     // Get Index of value
     int left_idx = -1;
     int right_idx = -1;
-    std::string left_format = tbl_left->getFormat();
     for (int i = 0; i < tbl_left->fields.size(); i++) {
-      if (tbl_left->fields[i].first == std::get<2>(*where)) {
+      if (where == nullptr) {
+        std::cout << tbl_left->fields[i].first << " vs " << var_table[0].second << std::endl;
+      }
+      if (where != nullptr && tbl_left->fields[i].first == std::get<0>(*where)) {
+        left_idx = i;
+      } else if (where == nullptr && tbl_left->fields[i].first == var_table[0].second) {
         left_idx = i;
       }
     }
-    std::string right_fomat = tbl_right->getFormat();
     for (int i = 0; i < tbl_right->fields.size(); i++) {
-      if (tbl_right->fields[i].first == std::get<0>(*where)) {
+      if (where == nullptr)
+        std::cout << tbl_right->fields[i].first << " vs " << var_table[1].second << " vs " << var_table[1].first << std::endl;
+      if (where != nullptr && tbl_right->fields[i].first == std::get<2>(*where)) {
+        right_idx = i;
+      } else if (where == nullptr && tbl_right->fields[i].first == var_table[1].second) {
         right_idx = i;
       }
     }
@@ -462,63 +476,118 @@ public:
     }
     // Look through all records for the given index and see if records match
     // In the future, create an unordered_map with variant record types
-    std::string temp_format = tbl_left->getFormat() + tbl_right->getFormat();
-    int format_idx = 0;
-
     // Go through marked records and compare based on operator
-    for (int i = left_idx; i < tbl_left->records.size(); i+=tbl_left->fields_size) {
-      for (int j = right_idx; j < tbl_right->records.size(); i+=tbl_right->fields_size) {
-        std::cout << "Sales[" << i << "/" << tbl_left->records.size() << "]\n";
-        if(auto value_l = std::get_if<std::string>(&tbl_left->records[i])) {
-          std::cout << "LEFT: " << *value_l << std::endl;
-          if(auto value_r = std::get_if<std::string>(&tbl_right->records[j])) {
-            // If type and record matches, add combined record to table
-            if (*value_l == *value_r) {
-              // Go to start of the row and add based on format
-              std::cout << "Adding record\n";
-              for (int idx = i - left_idx; idx < tbl_left->fields_size; idx++) {
-                char format[1] = {temp_format[format_idx++]};
-                temp_tbl.addRecord(format, *value_l);
+    // Only do if join_section[1] is true
+    
+    // Keep track of left and right columns included in inner in an associative array
+    std::vector<bool> left_inner(tbl_left->records.size()/tbl_left->fields.size(), false);
+    std::vector<bool> right_inner(tbl_right->records.size()/tbl_right->fields.size(), false);
+
+    if (join_sections[1]) {
+      for (int i = left_idx; i < tbl_left->records.size(); i+=tbl_left->fields_size) {
+        for (int j = right_idx; j < tbl_right->records.size(); j+=tbl_right->fields_size) {
+          //std::cout << "Sales[" << i << "/" << tbl_left->records.size() << "]\n";
+          //std::cout << "Employee[" << j << "/" << tbl_right->records.size() << "]\n";
+          if(auto value_l = std::get_if<std::string>(&tbl_left->records[i])) {
+            if(auto value_r = std::get_if<std::string>(&tbl_right->records[j])) {
+              // If type and record matches, add combined record to table
+              if (*value_l == *value_r) {
+                // Go to start of the row and add based on format
+                return "Float comparison not yet implemented\n";
               }
+            } else {
+              return "Record types don't match (string)";
             }
-          } else {
-            return "Record types don't match (string)";
-          }
-        } else if(auto value_l = std::get_if<int>(&tbl_left->records[i])) {
-          std::cout << "LEFT: " << *value_l << std::endl;
-          if(auto value_r = std::get_if<int>(&tbl_right->records[j])) {
-            // If type and record matches, add combined record to table
-            if (*value_l == *value_r) {
-              // Go to start of the row and add based on format
-              std::cout << "Adding record " << *value_r << std::endl;
-              for (int idx = i - left_idx; idx < tbl_left->fields_size; idx++) {
-                char format[1] = {temp_format[format_idx++]};
-                temp_tbl.addRecord(format, *value_l);
+          } else if(auto value_l = std::get_if<int>(&tbl_left->records[i])) {
+            if(auto value_r = std::get_if<int>(&tbl_right->records[j])) {
+              // If type and record matches, add combined record to table
+              if (*value_l == *value_r) {
+                left_inner[(i/tbl_left->fields_size)] = true;
+                right_inner[(i/tbl_right->fields_size)] = true;
+                // Go to start of the row and add based on format until end of row
+                // Start of row is a negative offset from i by column idx
+                // End of row (1+floor((i)/field_size))*fields_size
+                //std::cout << i-left_idx << "/" << (1+(i/tbl_left->fields_size))*tbl_left->fields_size << std::endl;
+                for (int idx = i - left_idx; idx < (1+(i/tbl_left->fields_size))*tbl_left->fields_size; idx++) {
+                  //std::cout << tbl_left->name() << ":" << tbl_left->fields[idx % tbl_left->fields_size].first << " ";
+                  if(auto value = std::get_if<std::string>(&tbl_left->records[idx])) {
+                    temp_tbl.addRecord("s", value->c_str());
+                    //std::cout << "(s)";
+                  } else if (auto value = std::get_if<int>(&tbl_left->records[idx])) {
+                    temp_tbl.addRecord("i", *value);
+                    //std::cout << "(i)";
+                  } else if (auto value = std::get_if<double>(&tbl_left->records[idx])) {
+                    temp_tbl.addRecord("f", *value);
+                  }
+                  //std::cout << std::endl;
+                }
+                //std::cout << j-right_idx << "/" << (1+(j/tbl_right->fields_size))*tbl_right->fields_size << std::endl;
+                for (int idx = j - right_idx; idx < (1+(j/tbl_right->fields_size))*tbl_right->fields_size; idx++) {
+                  //std::cout << tbl_right->name() << ":" << tbl_right->fields[idx % tbl_left->fields_size].first << " ";
+                  if(auto value = std::get_if<std::string>(&tbl_right->records[idx])) {
+                    temp_tbl.addRecord("s", value->c_str());
+                    //std::cout << "(s)";
+                  } else if (auto value = std::get_if<int>(&tbl_right->records[idx])) {
+                    temp_tbl.addRecord("i", *value);
+                    //std::cout << "(i)";
+                  } else if (auto value = std::get_if<double>(&tbl_right->records[idx])) {
+                    temp_tbl.addRecord("f", *value);
+                  }
+                  //std::cout << std::endl;
+                }
+                //std::cout << ".";
               }
+            } else {
+              return "Record types don't match (int)";
             }
-          } else {
-            return "Record types don't match (int)";
-          }
-        } else if(auto value_l = std::get_if<double>(&tbl_left->records[i])) {
-          std::cout << "LEFT: " << *value_l << std::endl;
-          if(auto value_r = std::get_if<double>(&tbl_right->records[j])) {
-            // If type and record matches, add combined record to table
-            if (*value_l == *value_r) {
-              // Go to start of the row and add based on format
-              std::cout << "Adding record\n";
-              for (int idx = i - left_idx; idx < tbl_left->fields_size; idx++) {
-                char format[1] = {temp_format[format_idx++]};
-                temp_tbl.addRecord(format, *value_l);
+          } else if(auto value_l = std::get_if<double>(&tbl_left->records[i])) {
+            if(auto value_r = std::get_if<double>(&tbl_right->records[j])) {
+              // If type and record matches, add combined record to table
+              if (*value_l == *value_r) {
+                return "Float comparison not yet implemented\n";
               }
+            } else {
+              return "Record types don't match (double)";
             }
-          } else {
-            return "Record types don't match (double)";
           }
         }
       }
     }
-    
-    return "";
+    //Print Left
+    if (join_sections[0]) {
+      //std::cout << "Left Rows:\n";
+      for (int i = 0; i < left_inner.size(); i++) {
+        if (!left_inner[i]) {
+          for (int idx = i * tbl_left->fields_size; idx < (i + 1) * tbl_left->fields_size; idx++) {
+            if(auto value = std::get_if<std::string>(&tbl_left->records[idx])) {
+              temp_tbl.addRecord("s", value->c_str());
+            } else if (auto value = std::get_if<int>(&tbl_left->records[idx])) {
+              temp_tbl.addRecord("i", *value);
+            } else if (auto value = std::get_if<double>(&tbl_left->records[idx])) {
+              temp_tbl.addRecord("f", *value);
+            }
+          }
+          // Add filler blank columns 
+          for (int idx = 0; idx < tbl_right->fields_size; idx++) {
+            temp_tbl.addRecord("i", std::numeric_limits<int>::min());
+          }
+        }
+      }
+    }
+    //Print Right
+    if (join_sections[2]) {
+      std::cout << "Right Rows:\n";
+      for (int row : right_inner)
+        std::cout << row << std::endl;
+    }
+
+    // Print temp tbl
+    DatabaseObject temp_db("temp");
+    temp_db.insertTable(temp_tbl);
+
+    ProtoGenerator pg(&temp_db);
+    return printTBL(temp_db.name(), temp_tbl.name());
+    //return "";
   }
 
   /**
@@ -608,7 +677,11 @@ public:
               }
               else if (auto val = std::get_if<int>(&(*record_iter)))
               {
-                ss << *val << " | ";
+                if (*val == std::numeric_limits<int>::min()) {
+                  ss << " | ";
+                } else {
+                  ss << *val << " | ";
+                }
               }
               else if (auto val = std::get_if<double>(&(*record_iter)))
               {
