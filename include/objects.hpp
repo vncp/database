@@ -103,7 +103,6 @@ namespace object
       return INTEGER_OBJ;
     }
   };
-
 };
 
 #endif /* __OBJECTS_H__ */

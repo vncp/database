@@ -87,14 +87,17 @@ class ProtoGenerator
       for (int col = 0; col < cols; col++) {
         if (auto val = std::get_if<std::string>(&(*record_iter)))
         {
+          std::cout << *val << std::endl;
           protoFile << "'" << *val << "'";
         }
         else if (auto val = std::get_if<int>(&(*record_iter)))
         {
+          std::cout << *val << std::endl;
           protoFile << *val;
         }
         else if (auto val = std::get_if<double>(&(*record_iter)))
         {
+          std::cout << *val << std::endl;
           protoFile << *val;
         }
 
@@ -362,6 +365,7 @@ public:
    * @param db_name the database name
    * @param tbl_name the table name
    * @param where [default: nullptr]] (column_name operator value) to test for when printing values
+   * @param where [default: false] if its a lock it'll
    * @return DatabaseObject updated database object
    */
   static DatabaseObject updateTBL(std::string db_name,
@@ -591,6 +595,51 @@ public:
   }
 
   /**
+   * @brief Creates a copy
+   * 
+   * @param db_name 
+   * @param tbl_name 
+   * @return true 
+   * @return false when lock exists. Otherwise true and lock file (backup) made
+   */
+  static bool lockTbl(std::string db_name, std::string tbl_name) {
+    auto db_path = DATA_PATH / db_name;
+    // If return false
+    if (fs::exists(db_path / (tbl_name + ".lock"))) {
+      return false;
+    }
+    fs::copy_file(db_path / (tbl_name + ".proto"), db_path / (tbl_name + ".lock"), fs::copy_options::overwrite_existing);
+    return true;
+  }
+
+  /**
+   * @brief copies the lock (original table) into the in use table
+   * 
+   * @param db_name 
+   * @param tbl_name 
+   * @return true 
+   * @return false 
+   */
+  static bool resetTransaction(std::string db_name, std::string tbl_name) {
+    auto db_path = DATA_PATH / db_name;
+    fs::copy_file(db_path / (tbl_name + ".lock"), db_path / (tbl_name + ".proto"), fs::copy_options::overwrite_existing);
+  }
+
+  /**
+   * @brief Removes the lock, so the changes on the table are kept
+   * 
+   * @param db_name name of the database
+   * @param tbl_name name of the table
+   * @return true 
+   * @return false 
+   */
+  static bool commitTransaction(std::string db_name, std::string tbl_name) {
+    auto db_path = DATA_PATH / db_name;
+    fs::remove(db_path / (tbl_name + ".lock"));
+    fs::remove(db_path / (tbl_name + "_lock.proto"));
+  }
+
+  /**
    * @brief prints table fields and records based on a variety of constraints
    * 
    * The fields are scanned to determine the column of the filter and where constraints
@@ -607,6 +656,10 @@ public:
                               std::tuple<std::string, std::string, std::string> *where = nullptr)
   {
     DatabaseObject db = loadDB(db_name);
+    // If the lock exists print the generated lock table instead
+    if (fs::exists(DATA_PATH / db_name / (tbl_name + ".lock" ))) {
+      tbl_name = tbl_name + "_lock";
+    }
     for (int i = 0; i < db.tables.size(); i++)
     {
       if (db.tables[i].name() == tbl_name)
@@ -741,6 +794,12 @@ public:
     std::string tableName = "";
     for (const auto &file : fs::directory_iterator(db_path))
     {
+      std::string path_str = file.path().string();
+      path_str = path_str.substr(path_str.length() - 5, path_str.length());
+      if (path_str != "proto" && path_str != ".lock") {
+        continue;
+      }
+
       auto proto_path = file.path();
 
       std::ifstream db_file(proto_path);
@@ -762,6 +821,9 @@ public:
         db_file >> next;
       }
       tableName = next;
+      if (path_str == ".lock") {
+        tableName += "_lock";
+      }
 
       // Now read in message field to table and close file before we get to the actual data
       TableObject tbl(tableName);
@@ -804,7 +866,11 @@ public:
 
             // std::cout << "Text: " << fullString.substr(1, fullString.size() - 3).c_str() << std::endl;
             char type[1] = {format[i]};
-            tbl.addRecord(type, fullString.substr(1, fullString.size() - 2).c_str());
+            if (fullString[fullString.size() - 1] == ',') {
+              tbl.addRecord(type, fullString.substr(1, fullString.size() - 3).c_str());
+            } else {
+              tbl.addRecord(type, fullString.substr(1, fullString.size() - 2).c_str());
+            }
           }
           else if (format[i] == 'f')
           {

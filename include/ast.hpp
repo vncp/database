@@ -496,6 +496,40 @@ namespace ast
     }
   };
 
+  struct CommitStatement : public Statement
+  {
+    CommitStatement(Token token) : Statement(token)
+    {
+    }
+
+    string tokenLiteral() override 
+    {
+      return "COMMIT";
+    }
+
+    operator string() override
+    {
+      return "COMMIT;";
+    }
+  };
+
+  struct BeginTransactionStatement : public Statement
+  {
+    BeginTransactionStatement(Token token) : Statement(token)
+    {
+    }
+
+    string tokenLiteral() override 
+    {
+      return "TRANSACTION";
+    }
+
+    operator string() override
+    {
+      return "BEGIN TRANSACTION;";
+    }
+  };
+  
   struct SelectTableStatement : public Statement
   {
     TableIdentifierList *names;

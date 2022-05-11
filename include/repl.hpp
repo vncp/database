@@ -24,15 +24,15 @@ const std::string repl_prompt = isatty(fileno(stdin)) ? ">> " : "";
 
 void repl()
 {
-  DatabaseObject nil_database("nil");
-  DatabaseObject *current_database = &nil_database;
+  DatabaseObject *current_database = new DatabaseObject("nil");
   std::string input;
   cout << "Vincent Pham - CS457 Database Management Systems\n";
-  cout << "PA2 - SQL Lexer, Parser, and Evaluator\n";
+  cout << "PA4 - SQL Lexer, Parser, and Evaluator\n";
   while (true)
   {
     std::cout << repl_prompt;
     getline(cin, input);
+    std::cout << input << std::endl;
     Lexer lexer(input);
     SQLParser parser(&lexer);
     try

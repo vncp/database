@@ -232,6 +232,14 @@ public:
     {
       return parseCommand();
     }
+    else if (currToken.type == token_type::BEGIN)
+    {
+      parseBeginTransactionStatement();
+    }
+    else if (currToken.type == token_type::COMMIT)
+    {
+      parseCommitStatement();
+    }
     else if (currToken.type == token_type::INSERT)
     {
       return parseInsertTableStatement();
@@ -562,6 +570,25 @@ public:
     if (currToken.type != token_type::SEMICOLON) {
       throw expected_token_error(currToken.literal, ";");
     }
+    return statement;
+  }
+
+  ast::CommitStatement *parseCommitStatement() {
+    ast::CommitStatement *statement = new ast::CommitStatement{currToken};
+    nextToken();
+    if (currToken.type != token_type::SEMICOLON) {
+      throw expected_token_error(currToken.literal, ";");
+    }
+    return statement;
+  }
+
+  ast::BeginTransactionStatement *parseBeginTransactionStatement() {
+    ast::BeginTransactionStatement *statement = new ast::BeginTransactionStatement{currToken};
+    nextToken();
+    if (currToken.type != token_type::TRANSACTION) {
+      throw expected_token_error(currToken.literal, "TRANSACTION");
+    }
+    nextToken();
     return statement;
   }
 

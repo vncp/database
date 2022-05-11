@@ -259,6 +259,81 @@ std::unordered_map<std::string, evalFnType> evalStatementFns = {
     /**
      * @brief Connects AST nodes on UPDATE statement to run ProtoGenerator::updateTable
      */
+    {"TRANSACTION", evalFnType([](ast::Node *node, DatabaseObject *current_database) {
+      auto node_ = dynamic_cast<ast::BeginTransactionStatement*>(node);
+      if (current_database->name() == "nil") {
+        cout << "!Failed to update to table since no database is selected.\n";
+        return new object::Integer(1);
+      }
+      // Create an inner repl
+        std::cout << "Transaction started.\n";
+        const std::string repl_prompt = isatty(fileno(stdin)) ? "(transaction) >> " : "";
+        std::string input;
+        std::vector<std::string> transaction_tables;
+        bool breakout = false; //Set to true once we find commit;
+        // Create a sub-REPL
+        do {
+            std::cout << repl_prompt;
+            getline(cin, input);
+            Lexer lexer(input);
+            SQLParser parser(&lexer);
+            // Try to evaluate the program in this sub REPL.
+            // If the lock exists we want to replace any table that is attempted with this lock, so we replace the name of the table
+            try {
+                ast::Program *program = parser.parseSql();
+                // Loop through all statements in the program and try to evaluate them
+                // If they are altering statements then we want to substitute x_lock.proto for them
+
+                // Check the type of the statment here
+                for (ast::Statement *statement : program->statements) {
+                    if (statement->tokenLiteral() == "UPDATE") {
+                        ast::UpdateTableStatement *update_stmt = dynamic_cast<ast::UpdateTableStatement *>(statement);
+                        std::string table_name = std::string(*update_stmt->name);
+                        // Lock the table
+                        ProtoGenerator::lockTbl(current_database->name(), table_name);
+                        transaction_tables.push_back(table_name);
+                        // Delegate the task to the original function performed on x_lock.proto
+                        Token new_token = update_stmt->token;
+                        new_token.literal = new_token.literal + "_lock";
+                        update_stmt->name = new ast::Identifier(new_token, new_token.literal);
+                        evalStatementFns[update_stmt->tokenLiteral()](update_stmt, current_database);
+                    } else if (statement->tokenLiteral() == "COMMIT") {
+                        for (std::string table_name : transaction_tables) {
+                            ProtoGenerator::commitTransaction(current_database->name(), table_name);
+                        }
+                        transaction_tables.clear();
+                    } else {
+                        std::cout << "Literal: " << statement->tokenLiteral() << std::endl;
+                    }
+                }
+            }
+            catch (const expected_token_error &e)
+            {
+            cerr << e.what() << endl;
+            }
+            catch (const unknown_type_error &e)
+            {
+            cerr << e.what() << endl;
+            }
+            catch (const unassigned_parse_function_error &e)
+            {
+            cerr << e.what() << endl;
+            }
+            catch (const unknown_command_error &e)
+            {
+            cerr << e.what() << endl;
+            }
+            catch (const runtime_error &e)
+            {
+            cerr << e.what() << endl;
+            }
+        } while (!breakout);
+
+      return new object::Integer(0);
+    })},
+    /**
+     * @brief Connects AST nodes on UPDATE statement to run ProtoGenerator::updateTable
+     */
     {"UPDATE", evalFnType([](ast::Node *node, DatabaseObject *current_database) {
       auto node_ = dynamic_cast<ast::UpdateTableStatement*>(node);
       // Database check

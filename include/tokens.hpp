@@ -61,6 +61,9 @@ namespace token_type
   const TokenType UPDATE = "UPDATE";
   const TokenType SET = "SET";
   const TokenType ON = "ON";
+  const TokenType BEGIN = "BEGIN";
+  const TokenType TRANSACTION = "TRANSACTION";
+  const TokenType COMMIT = "COMMIT";
 
   // Arithmetic
   const TokenType BANG = "!";
@@ -105,7 +108,10 @@ namespace token_type
       {"WHERE", WHERE},
       {"UPDATE", UPDATE},
       {"SET", SET},
-      {"ON", ON}
+      {"ON", ON},
+      {"BEGIN", BEGIN},
+      {"TRANSACTION", TRANSACTION},
+      {"COMMIT", COMMIT}
   };
 
   std::unordered_map<std::string, TokenType> types = {

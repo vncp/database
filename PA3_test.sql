@@ -23,7 +23,7 @@ select * from Employee E inner join Sales S on E.id = S.employeeID;
 -- The following will include Gill (5 points)
 select * from Employee E left outer join Sales S on E.id = S.employeeID;
 
-.exit
+.EXIT
 
 -- Expected output
 --
