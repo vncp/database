@@ -271,7 +271,6 @@ std::unordered_map<std::string, evalFnType> evalStatementFns = {
         std::string input;
         std::vector<std::string> transaction_tables;
         bool breakout = false; //Set to true once we find commit;
-        bool error = false;
         // Create a sub-REPL
         do {
             std::cout << repl_prompt;
@@ -293,13 +292,13 @@ std::unordered_map<std::string, evalFnType> evalStatementFns = {
                         // Lock the table
                         if(!ProtoGenerator::lockTbl(current_database->name(), table_name)) {
                           cout << "Error: Table Flights is locked!\n";
-                          error = true;
+                        } else {
+                          transaction_tables.push_back(table_name);
+                          // Delegate the task to the original function performed on x_lock.proto
+                          evalStatementFns[update_stmt->tokenLiteral()](update_stmt, current_database);
                         }
-                        transaction_tables.push_back(table_name);
-                        // Delegate the task to the original function performed on x_lock.proto
-                        evalStatementFns[update_stmt->tokenLiteral()](update_stmt, current_database);
                     } else if (statement->tokenLiteral() == "COMMIT") {
-                      if (!error) {
+                      if (transaction_tables.size() > 0) {
                         for (std::string table_name : transaction_tables) {
                             ProtoGenerator::commitTransaction(current_database->name(), table_name);
                         }

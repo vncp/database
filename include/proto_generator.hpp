@@ -860,11 +860,9 @@ public:
             while (count[count.size() - 2] != '\'' && false) 
             {
               db_file >> count;
-              std::cout << count << std::endl;
               fullString += " " + count;
             }
 
-            // std::cout << "Text: " << fullString.substr(1, fullString.size() - 3).c_str() << std::endl;
             char type[1] = {format[i]};
             if (fullString[fullString.size() - 1] == ',') {
               tbl.addRecord(type, fullString.substr(1, fullString.size() - 3).c_str());
@@ -874,7 +872,6 @@ public:
           }
           else if (format[i] == 'f')
           {
-            // std::cout << "Number: " << count.substr(0, count.size() - 1) << std::endl;
             char type[1] = {format[i]};
             tbl.addRecord(type, std::stod(&count[0]));
           }
